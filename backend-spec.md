@@ -1,225 +1,327 @@
-# Backend Specification — Painting E-commerce
+# Backend Specification --- Painting E-commerce API
 
-## 1. Purpose and Current Scope
+**Version:** 2.0\
+**Status:** MVP specification\
+**Stack:** Java 17, Spring Boot 3.3.x, Spring Web, Spring Data JPA,
+Hibernate, Bean Validation, Maven, H2 for local development
 
-Build a REST API for managing a catalogue of paintings. The current MVP supports create, read, title search, update, and delete operations.
+## 1. Purpose
 
-This specification describes the existing starter application and the expected behavior for its catalogue API. Authentication, customer accounts, cart, orders, payments, image upload, pagination, and production database configuration are future work.
+Provide a REST API for the Painting E-commerce frontend. The MVP manages
+painting catalogue records. It does not yet implement customer accounts,
+carts, checkout, orders, payments, or production deployment.
 
-## 2. Technology Stack
+This document describes the intended contract and engineering
+requirements. Verify endpoint details against the current source code;
+this document alone does not prove that each feature is implemented.
 
-- Java 17
-- Spring Boot 3.3
-- Maven
-- Spring Web
-- Spring Data JPA
-- Jakarta Bean Validation
-- Hibernate as the JPA provider
-- H2 in-memory database for local development
-- JUnit and Spring Boot Test for automated tests
+## 2. Scope
 
-## 3. Architecture
+Included: create, read, update, search, and delete painting records;
+JSON requests/responses; request validation; consistent HTTP status
+codes and errors; layered architecture; JPA/Hibernate persistence; H2
+local database; unit and integration tests.
 
-Use a layered structure:
+Not included: authentication/authorization, cart, orders, payment,
+refunds, shipping, image binary storage, customer accounts, production
+migrations/deployment, advanced search or pagination unless added
+explicitly.
 
-1. **Controller:** HTTP routing, request binding, validation trigger, and response status.
-2. **Service:** application/business logic and not-found handling.
-3. **Repository:** database access using Spring Data JPA.
-4. **Entity:** persistent `Painting` model.
-5. **Database:** H2 for local development.
+## 3. Technology and architecture
 
-Keep business logic out of the controller and avoid placing HTTP-specific concerns in the repository.
+-   Java 17
+-   Spring Boot 3.3.x
+-   Spring Web
+-   Spring Data JPA
+-   Hibernate as the JPA provider
+-   Jakarta Bean Validation
+-   H2 in-memory database for local development
+-   Maven
 
-Current package structure:
+Request flow:
 
-```text
-com.example.painting/
-├── PaintingEcommerceApplication.java
-└── painting/
-    ├── Painting.java
-    ├── PaintingController.java
-    ├── PaintingService.java
-    └── PaintingRepository.java
+``` text
+HTTP request
+    |
+    v
+PaintingController
+    |
+    v
+PaintingService
+    |
+    v
+PaintingRepository
+    |
+    v
+Hibernate / JPA
+    |
+    v
+H2 database (local)
 ```
 
-## 4. Painting Data Model
+Responsibilities: - **Controller:** HTTP mapping, request/response
+handling, status codes. - **Service:** business rules and transaction
+boundaries. - **Repository:** database access. - **Entity:** persistence
+mapping. - **DTOs:** API contract, separate from persistence internals
+where practical. - **Validation:** rejects invalid requests. -
+**Exception handling:** maps expected failures to appropriate HTTP
+responses.
 
-The current `Painting` entity contains:
+Avoid putting business rules directly in controllers or treating JPA
+entities as the permanent public API contract.
 
-| Field | Type | Rules |
-|---|---|---|
-| `id` | `Long` | Generated primary key |
-| `title` | `String` | Required, max 150 characters |
-| `artist` | `String` | Required, max 120 characters |
-| `description` | `String` | Optional, max 2,000 characters |
-| `price` | `BigDecimal` | Required, greater than 0; precision 12, scale 2 |
-| `stock` | `Integer` | Required, minimum 0 |
-| `imageUrl` | `String` | Optional, max 1,000 characters |
+## 4. Painting data model
 
-Use `BigDecimal` for monetary values rather than floating-point types.
+  -----------------------------------------------------------------------
+  Field                   Suggested type          Rules
+  ----------------------- ----------------------- -----------------------
+  `id`                    `Long`                  Database-generated;
+                                                  read-only for clients
 
-The current API returns the entity directly. A future improvement should introduce request/response DTOs so the persistence model is not exposed as the public API contract.
+  `title`                 `String`                Required, trimmed,
+                                                  documented maximum
+                                                  length
 
-## 5. REST API
+  `artist`                `String`                Required, documented
+                                                  maximum length
+
+  `description`           `String`                Optional
+
+  `price`                 `BigDecimal`            Required; non-negative
+                                                  or positive according
+                                                  to agreed rule
+
+  `stock`                 `Integer`               Required; non-negative
+                                                  integer
+
+  `imageUrl`              `String`                Optional URL; validate
+                                                  if provided
+  -----------------------------------------------------------------------
+
+Use `BigDecimal` for money rather than `double` to avoid binary
+floating-point rounding issues. If the current entity uses another type,
+treat a change as an explicit task with tests and migration
+considerations.
+
+## 5. REST API contract
 
 Base path: `/api/paintings`
 
-### 5.1 Create Painting
+  ---------------------------------------------------------------------------------------
+  Method            Path                            Purpose           Expected status
+  ----------------- ------------------------------- ----------------- -------------------
+  GET               `/api/paintings`                List paintings    `200 OK`
 
-- **Method:** `POST`
-- **Path:** `/api/paintings`
-- **Request:** JSON painting fields, excluding any client-supplied ID
-- **Success:** `201 Created`
-- **Response:** JSON representation of the saved painting
+  GET               `/api/paintings?title=Sunset`   Search by title   `200 OK`
 
-Example request:
+  GET               `/api/paintings/{id}`           Get one painting  `200 OK` or
+                                                                      `404 Not Found`
 
-```json
+  POST              `/api/paintings`                Create a painting `201 Created`
+
+  PUT               `/api/paintings/{id}`           Update a painting `200 OK` or
+                                                                      `204 No Content`,
+                                                                      per chosen
+                                                                      contract; `404` if
+                                                                      absent
+
+  DELETE            `/api/paintings/{id}`           Delete a painting `204 No Content`,
+                                                                      or `404` if absent
+  ---------------------------------------------------------------------------------------
+
+The exact status codes and response shapes must match the implementation
+and be documented consistently. Do not assume an endpoint is implemented
+merely because it appears here.
+
+Example create request:
+
+``` http
+POST /api/paintings
+Content-Type: application/json
+```
+
+``` json
 {
-  "title": "Sunset Over Hills",
-  "artist": "A. Sharma",
-  "description": "Acrylic on canvas",
-  "price": 4500.00,
-  "stock": 3,
+  "title": "Sunset",
+  "artist": "Amit",
+  "description": "Warm sunset over the sea",
+  "price": 2500.00,
+  "stock": 4,
   "imageUrl": "https://example.com/sunset.jpg"
 }
 ```
 
-The server must generate the ID. Bean Validation must reject invalid required fields and invalid price/stock values.
+Example response body:
 
-### 5.2 List Paintings and Search by Title
-
-- **Method:** `GET`
-- **Path:** `/api/paintings`
-- **Optional query parameter:** `title`
-- **Success:** `200 OK`
-- **Response:** JSON array
-
-Examples:
-- `GET /api/paintings` returns all paintings.
-- `GET /api/paintings?title=sunset` returns paintings whose titles contain `sunset`, ignoring case.
-
-An empty search result should return `200 OK` with an empty array, not `404 Not Found`.
-
-### 5.3 Get Painting by ID
-
-- **Method:** `GET`
-- **Path:** `/api/paintings/{id}`
-- **Success:** `200 OK`
-- **Not found:** `404 Not Found`
-- **Response:** JSON painting object
-
-### 5.4 Update Painting
-
-- **Method:** `PUT`
-- **Path:** `/api/paintings/{id}`
-- **Request:** complete set of editable painting fields
-- **Success:** `200 OK`
-- **Not found:** `404 Not Found`
-- **Response:** JSON updated painting object
-
-The service should first verify that the painting exists, then update its editable fields. `PUT` is treated as a full update rather than a partial patch.
-
-### 5.5 Delete Painting
-
-- **Method:** `DELETE`
-- **Path:** `/api/paintings/{id}`
-- **Success:** `204 No Content`
-- **Not found:** `404 Not Found`
-- **Response body:** none
-
-Deleting a nonexistent ID should not silently report success.
-
-## 6. Validation and Error Handling
-
-- Trigger Bean Validation for create and update requests.
-- Required fields must not be blank.
-- Price must be greater than zero.
-- Stock must be zero or greater.
-- Invalid requests should return `400 Bad Request`.
-- Missing painting IDs should return `404 Not Found`.
-- Return useful, consistent error responses without leaking stack traces or internal implementation details.
-- Add centralized exception handling with `@RestControllerAdvice` as a recommended improvement.
-- Document the error response schema and keep it consistent for frontend consumption.
-
-The exact error body should be defined when centralized exception handling is implemented; clients must not depend on undocumented framework-default error formatting.
-
-## 7. Persistence and Configuration
-
-Local development configuration:
-
-```properties
-spring.datasource.url=jdbc:h2:mem:paintingdb
-spring.datasource.username=sa
-spring.datasource.password=
-spring.jpa.hibernate.ddl-auto=update
-spring.h2.console.enabled=true
+``` json
+{
+  "id": 1,
+  "title": "Sunset",
+  "artist": "Amit",
+  "description": "Warm sunset over the sea",
+  "price": 2500.00,
+  "stock": 4,
+  "imageUrl": "https://example.com/sunset.jpg"
+}
 ```
 
-- The in-memory database loses its data when the application stops.
-- H2 console is for local development only and must not be exposed publicly.
-- Before production, move to PostgreSQL or another supported production database.
-- Use database migrations, such as Flyway, for controlled schema changes.
-- Configure secrets and environment-specific values outside source control.
+These are intended-contract examples, not a claim that the current
+application returns exactly these bodies.
 
-## 8. Security Requirements
+## 6. Request validation
 
-Current status: authentication and authorization are not implemented.
+Use Jakarta Bean Validation on request DTOs, for example: - `@NotBlank`
+for required text. - `@Size` for maximum string length. - `@NotNull` for
+required numeric fields. - `@DecimalMin` for price. - `@Min(0)` for
+stock. - A URL constraint only if an appropriate validator dependency is
+present; otherwise use a suitable URL validation method.
 
-Before public deployment:
-- Add Spring Security.
-- Require authentication for write operations.
-- Restrict create, update, and delete operations to an ADMIN role.
-- Define which catalogue read operations are public.
-- Configure CORS for trusted frontend origins.
-- Validate input and apply sensible request-size limits.
-- Do not rely on frontend route restrictions as a security boundary.
-- Never commit credentials or production secrets.
+Use `@Valid` on controller request bodies. Return `400 Bad Request` for
+invalid input with useful field-level messages that do not reveal
+internals.
 
-## 9. Testing Requirements
+The backend is authoritative: never rely on TypeScript or browser
+validation for data integrity or API security.
 
-- Unit-test service behavior.
-- Test repository search semantics, including case-insensitive title matching.
-- Test controller status codes and JSON behavior.
-- Test validation failures for missing/invalid title, artist, price, and stock.
-- Test `404` behavior for missing IDs.
-- Test create, update, and delete flows.
-- Add integration tests using an isolated test database.
-- Ensure tests do not depend on execution order or persistent local data.
+## 7. Response and error handling
 
-## 10. Observability and Production Readiness
+Use a consistent JSON error format, for example:
 
-Before production:
-- Add structured logging without logging secrets.
-- Add health checks and metrics.
-- Configure connection pooling and database monitoring as appropriate.
-- Add request tracing where needed.
-- Set up CI to compile, test, and scan dependencies.
-- Document deployment, configuration, rollback, and backup procedures.
+``` json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Request validation failed",
+  "fieldErrors": {
+    "title": "must not be blank"
+  }
+}
+```
 
-## 11. Future Scope
+Recommended behaviour: - `400 Bad Request`: malformed JSON or validation
+failure. - `404 Not Found`: painting does not exist. - `409 Conflict`:
+only for a defined business conflict. - `500 Internal Server Error`:
+unexpected failure; do not return stack traces or sensitive details.
 
-Track these separately in `roadmap.md` and implement them only when requirements are defined:
+Use `@ControllerAdvice` or `@RestControllerAdvice` for consistent
+exception handling. Do not return `200 OK` for failed operations.
 
-- DTOs and centralized exception handling
-- Pagination, sorting, and additional filters
-- Authentication and role-based authorization
-- Customer profiles and addresses
-- Shopping cart and order lifecycle
-- Stock reservation and concurrency-safe order placement
-- Payment provider integration and webhook idempotency
-- Image upload and object storage
-- PostgreSQL and database migrations
-- OpenAPI documentation
-- Docker, CI/CD, and cloud deployment
+## 8. Persistence and database configuration
 
-## 12. Acceptance Criteria
+For local development, an in-memory H2 database may use:
 
-1. The application starts with the documented local configuration.
-2. All five catalogue operations behave as specified.
-3. Invalid input is rejected with an appropriate HTTP status.
-4. Missing IDs return `404 Not Found`.
-5. Search is case-insensitive and returns an empty array for no matches.
-6. Automated tests cover successful and failure scenarios.
-7. The API contract is documented and consistent with frontend expectations.
-8. No unsupported security or production-readiness claims are made.
+``` properties
+spring.datasource.url=jdbc:h2:mem:paintingdb
+spring.datasource.driverClassName=org.h2.Driver
+spring.jpa.hibernate.ddl-auto=update
+```
+
+Verify the actual configuration and dependencies in the project.
+
+-   H2 in-memory data is normally lost when the application stops.
+-   For production-oriented database workflows, use schema migrations
+    such as Flyway instead of relying on Hibernate schema auto-update.
+-   Configure PostgreSQL or another selected production database through
+    an environment-specific profile.
+-   Never commit production credentials.
+-   Add indexes based on measured query requirements.
+-   If relationships are introduced, choose fetch strategies
+    deliberately and test query counts to avoid N+1 behaviour.
+
+## 9. Transactions and service layer
+
+-   Put business operations in the service layer.
+-   Use `@Transactional` at appropriate service boundaries.
+-   Use read-only transactions for suitable read operations where
+    helpful.
+-   Keep transactions short.
+-   Define behaviour for updates/deletes of missing records.
+-   Test persistence and failure cases.
+
+## 10. Security and configuration
+
+Authentication is not included in the current MVP. Do not expose write
+endpoints publicly in production until authentication and authorization
+are implemented.
+
+-   Configure CORS only for required frontend origins.
+-   Keep secrets outside source control.
+-   Validate and constrain incoming data.
+-   Do not trust client-supplied IDs or prices for future checkout/order
+    operations.
+-   Add authentication, authorization, rate limiting, and appropriate
+    security headers before public production use.
+
+## 11. Testing requirements
+
+-   Unit-test service business rules.
+-   Test repository behaviour.
+-   Use Spring Boot integration tests for endpoints, serialization,
+    validation, and persistence.
+-   Test not-found cases, malformed JSON, and invalid fields.
+-   Test create/read/update/delete workflows.
+-   Verify exact JSON contracts expected by the frontend.
+-   If relationships are added, test query counts for
+    performance-sensitive endpoints.
+
+## 12. Suggested project structure
+
+``` text
+src/main/java/.../painting/
+  controller/
+    PaintingController.java
+  service/
+    PaintingService.java
+  repository/
+    PaintingRepository.java
+  entity/
+    Painting.java
+  dto/
+    PaintingRequest.java
+    PaintingResponse.java
+  exception/
+    GlobalExceptionHandler.java
+    PaintingNotFoundException.java
+```
+
+Adapt package names and files to the existing project. Introduce DTOs if
+entities are currently exposed directly; avoid duplicate classes without
+a reason.
+
+## 13. Observability and performance
+
+-   Log useful failures without logging secrets or unnecessary personal
+    data.
+-   Measure API latency and database query counts before optimizing.
+-   Avoid N+1 queries when loading related entities.
+-   Add pagination before the catalogue grows large.
+-   Use PostgreSQL `EXPLAIN ANALYZE` to investigate queries; remember
+    that it executes the query.
+-   Do not assume `JOIN FETCH` always improves total memory use or
+    response time; measure with representative data.
+
+## 14. Definition of done
+
+-   Endpoints, status codes, and response bodies are consistent and
+    documented.
+-   Backend validation is enforced.
+-   Errors use a predictable response shape.
+-   Controller, service, and repository responsibilities are separated.
+-   Tests cover successful and unsuccessful cases.
+-   Local setup works from documented instructions.
+-   No secrets are committed.
+-   Frontend and backend agree on JSON names, nullability, and response
+    shapes.
+-   Production requirements are marked as not implemented until
+    verified.
+
+## 15. Decisions to confirm
+
+-   Whether the current entity fields match the model above.
+-   Whether list endpoint returns an array or wrapper object.
+-   Exact response body and status code for create/update/delete.
+-   Whether price may be zero.
+-   Whether `description` and `imageUrl` may be null.
+-   Whether title search is case-sensitive or partial.
+-   Whether the current code uses DTOs or returns entities directly.
+-   Which production database and migration tool will be used.

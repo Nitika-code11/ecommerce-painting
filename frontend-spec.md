@@ -1,193 +1,284 @@
-# Frontend Specification — Painting E-commerce
+# Frontend Specification --- Painting E-commerce
+
+**Version:** 2.0\
+**Status:** MVP specification\
+**Stack:** React, TypeScript, Vite, Tailwind CSS, shadcn/ui, React
+Router, Fetch API or Axios
 
 ## 1. Purpose
 
-Build a responsive React web application for browsing and managing a catalogue of paintings. The frontend will consume the existing Spring Boot REST API.
+Build a responsive frontend for the Painting E-commerce catalogue. The
+MVP supports browsing paintings, searching by title, viewing details,
+and create/edit/delete screens when those backend operations are
+enabled.
 
-This specification describes the current catalogue MVP. Features not supported by the current backend must not be presented as implemented.
+The frontend is a separate application from the Spring Boot backend.
 
-## 2. Technology
+## 2. Scope
 
-- React with Vite
-- JavaScript (ES modules)
-- React Router for client-side navigation
-- Fetch API or Axios for HTTP requests
-- CSS modules, plain CSS, or another consistent styling approach
-- Vitest and React Testing Library for frontend tests
+### Included
 
-Choose one HTTP client and one styling approach; do not add unnecessary libraries.
+-   Browse the painting catalogue and search by title.
+-   View a painting's details.
+-   Create, edit, and delete painting records if supported by the
+    running backend.
+-   Call the Spring Boot REST API.
+-   Handle loading, empty, success, not-found, invalid-data, and error
+    states.
+-   Validate form fields for usability.
+-   Validate API response data at runtime before trusting its shape.
+-   Responsive and accessible UI.
 
-## 3. Backend Integration
+### Not included in this MVP
 
-- API base URL: `http://localhost:8080/api`
-- Configure the URL through `VITE_API_BASE_URL`.
-- The frontend must call the backend; do not hardcode catalogue data as the real data source.
-- Send JSON requests with `Content-Type: application/json` when a request has a JSON body.
-- Handle network failures, non-2xx responses, empty results, and malformed or missing image URLs.
-- If frontend and backend run on different ports, configure backend CORS for the local frontend origin. Do not use a wildcard origin with credentials in production.
+-   Authentication or user accounts.
+-   Cart, checkout, orders, payments, shipping, reviews, or wishlist.
+-   Binary image uploads; `imageUrl` is an optional URL/string.
 
-Example `.env.example`:
+## 3. Technology responsibilities
 
-```env
-VITE_API_BASE_URL=http://localhost:8080/api
-```
+  -----------------------------------------------------------------------
+  Technology                          Responsibility
+  ----------------------------------- -----------------------------------
+  React                               UI components and rendering
 
-## 4. Pages and Routes
+  TypeScript                          Static type checking
 
-### 4.1 Catalogue — `/`
+  Vite                                Development server and production
+                                      build
 
-- Fetch paintings using `GET /paintings`.
-- Display a responsive grid of painting cards.
-- Each card displays image, title, artist, price, and stock/availability.
-- Include a title-search field.
-- Submit searches using `GET /paintings?title={searchTerm}`.
-- Provide a clear-search action.
-- Display loading, empty-results, and error states.
-- Clicking a card opens `/paintings/:id`.
+  Tailwind CSS                        Styling and responsive layout
 
-### 4.2 Painting Details — `/paintings/:id`
+  shadcn/ui                           Customizable buttons, dialogs, form
+                                      controls, and other UI components
 
-- Fetch a painting using `GET /paintings/{id}`.
-- Display title, artist, description, price, stock, and image when available.
-- Provide a link back to the catalogue.
-- Show a not-found state for a 404 response.
-- Show a retry option for recoverable network/server failures.
+  React Router                        Client-side page navigation
 
-### 4.3 Admin Catalogue — `/admin/paintings`
+  Fetch API or Axios                  HTTP communication with backend
 
-- Fetch and display paintings.
-- Provide links/actions to add, edit, and delete paintings.
-- Ask for confirmation before deletion.
-- Refresh the list after a successful create, update, or delete.
-- Show success and error feedback.
+  Vitest and React Testing Library    Frontend tests
+  -----------------------------------------------------------------------
 
-**Security note:** The current backend has no authentication or authorization. These admin routes are only a development/demo interface and must not be treated as secure. Before public deployment, protect write operations with backend authentication and admin authorization.
+Use either Fetch or Axios consistently. Fetch is sufficient for the MVP;
+installing both is unnecessary.
 
-### 4.4 Add Painting — `/admin/paintings/new`
+## 4. Routes
 
-Provide a form with:
-- `title` — required, max 150 characters
-- `artist` — required, max 120 characters
-- `description` — optional, max 2,000 characters
-- `price` — required, greater than 0
-- `stock` — required, integer greater than or equal to 0
-- `imageUrl` — optional, max 1,000 characters
+  -----------------------------------------------------------------------
+  Route                   Screen                  Behaviour
+  ----------------------- ----------------------- -----------------------
+  `/paintings`            Catalogue               Fetch paintings and
+                                                  support title search
 
-Submit with `POST /paintings`. On success, show confirmation and navigate to the catalogue or details page.
+  `/paintings/new`        Create painting         Validated form; submit
+                                                  POST
 
-### 4.5 Edit Painting — `/admin/paintings/:id/edit`
+  `/paintings/:id`        Details                 Fetch and display one
+                                                  painting
 
-- Load the current record using `GET /paintings/{id}`.
-- Populate the form with existing values.
-- Submit changes using `PUT /paintings/{id}`.
-- Show validation and server errors without silently discarding the user's input.
+  `/paintings/:id/edit`   Edit painting           Fetch current record
+                                                  and submit PUT
 
-## 5. API Contract Used by the Frontend
+  `*`                     Not found               Friendly not-found page
+  -----------------------------------------------------------------------
 
-Base URL: `http://localhost:8080/api`
+Hide create/edit/delete controls if those operations are not enabled in
+the target environment.
 
-| User action | Method and endpoint | Expected success |
-|---|---|---|
-| List all paintings | `GET /paintings` | `200 OK`, JSON array |
-| Search by title | `GET /paintings?title=sunset` | `200 OK`, JSON array |
-| View a painting | `GET /paintings/{id}` | `200 OK`, JSON object |
-| Create a painting | `POST /paintings` | `201 Created`, JSON object |
-| Update a painting | `PUT /paintings/{id}` | `200 OK`, JSON object |
-| Delete a painting | `DELETE /paintings/{id}` | `204 No Content` |
+## 5. Data contract
 
-Example create/update request:
+``` typescript
+export interface Painting {
+  id: number;
+  title: string;
+  artist: string;
+  description?: string | null;
+  price: number;
+  stock: number;
+  imageUrl?: string | null;
+}
 
-```json
-{
-  "title": "Sunset Over Hills",
-  "artist": "A. Sharma",
-  "description": "Acrylic on canvas",
-  "price": 4500.00,
-  "stock": 3,
-  "imageUrl": "https://example.com/sunset.jpg"
+export interface PaintingInput {
+  title: string;
+  artist: string;
+  description?: string;
+  price: number;
+  stock: number;
+  imageUrl?: string;
 }
 ```
 
-Example response shape:
+TypeScript interfaces help catch mistakes in frontend code, but **they
+do not validate JSON at runtime**. Treat `response.json()` data as
+`unknown` and validate it before using it as a `Painting`.
 
-```json
-{
-  "id": 1,
-  "title": "Sunset Over Hills",
-  "artist": "A. Sharma",
-  "description": "Acrylic on canvas",
-  "price": 4500.00,
-  "stock": 3,
-  "imageUrl": "https://example.com/sunset.jpg"
+Example type guard:
+
+``` typescript
+export function isPainting(data: unknown): data is Painting {
+  if (typeof data !== "object" || data === null) return false;
+
+  const value = data as Record<string, unknown>;
+
+  return (
+    typeof value.id === "number" &&
+    typeof value.title === "string" &&
+    typeof value.artist === "string" &&
+    typeof value.price === "number" &&
+    typeof value.stock === "number" &&
+    (value.description === undefined ||
+      value.description === null ||
+      typeof value.description === "string") &&
+    (value.imageUrl === undefined ||
+      value.imageUrl === null ||
+      typeof value.imageUrl === "string")
+  );
 }
 ```
 
-The response shape reflects the current `Painting` entity. If DTOs are introduced later, update this contract and the frontend together.
+Create a validator for arrays of paintings too. Do not cast unchecked
+JSON directly to `Painting`. A schema library such as Zod is an optional
+future alternative.
 
-## 6. Validation and Error Handling
+## 6. API integration
 
-- Validate required fields and field lengths before submission for user feedback.
-- Treat backend validation as authoritative.
-- Handle `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`, and network errors.
-- Do not assume all error responses have the same JSON structure.
-- For delete, handle the `204 No Content` response without trying to parse a JSON body.
-- Prevent duplicate submissions while a request is in progress.
-- Never show a success message before the API confirms success.
+Configure the backend base URL through an environment variable, for
+example:
 
-## 7. UI and Accessibility
-
-- Use a clean art-gallery visual style; keep focus on artwork imagery.
-- Use responsive layouts for mobile, tablet, and desktop.
-- Preserve image proportions; provide a fallback if an image fails to load.
-- Use semantic HTML, visible focus states, labels for form controls, and keyboard-accessible actions.
-- Ensure text and controls have sufficient contrast.
-- Display currency consistently. The initial demo may use INR (₹), unless a later requirement specifies another currency.
-- Do not add cart, checkout, payment, customer login, or order-history UI until the corresponding backend features exist.
-
-## 8. Suggested Folder Structure
-
-```text
-frontend/
-├── src/
-│   ├── api/
-│   │   └── paintingsApi.js
-│   ├── components/
-│   │   ├── Header.jsx
-│   │   ├── PaintingCard.jsx
-│   │   ├── PaintingForm.jsx
-│   │   ├── LoadingState.jsx
-│   │   └── ErrorMessage.jsx
-│   ├── pages/
-│   │   ├── HomePage.jsx
-│   │   ├── PaintingDetailsPage.jsx
-│   │   ├── AdminPaintingsPage.jsx
-│   │   ├── AddPaintingPage.jsx
-│   │   └── EditPaintingPage.jsx
-│   ├── App.jsx
-│   └── main.jsx
-├── .env.example
-├── package.json
-└── README.md
+``` text
+VITE_API_BASE_URL=http://localhost:8080
 ```
 
-## 9. Testing
+Expected endpoints (verify the actual implementation's response shape
+and status codes):
 
-- Test catalogue rendering and loading/empty/error states.
-- Test title search and clear-search behavior.
-- Test painting details for success and not-found cases.
-- Test form validation and successful/failed submissions.
-- Test delete confirmation and handling of `204 No Content`.
-- Mock API calls for unit/component tests; perform at least one integration check against a running backend.
+  Method   Endpoint                        Purpose
+  -------- ------------------------------- ------------------
+  GET      `/api/paintings`                List paintings
+  GET      `/api/paintings?title=Sunset`   Search by title
+  GET      `/api/paintings/{id}`           Get one painting
+  POST     `/api/paintings`                Create painting
+  PUT      `/api/paintings/{id}`           Update painting
+  DELETE   `/api/paintings/{id}`           Delete painting
 
-## 10. Acceptance Criteria
+Agree whether the list endpoint returns a raw array or a wrapper object,
+then validate that exact contract.
 
-1. Catalogue data comes from the Spring Boot API.
-2. Title search uses the backend search endpoint.
-3. Details page loads the selected painting by ID.
-4. Add, edit, and delete flows work against the existing API.
-5. Loading, empty, validation, not-found, and error states are handled.
-6. UI is responsive and accessible.
-7. The base API URL is configurable through an environment variable.
-8. Setup and run commands are documented.
-9. Tests pass and the production build succeeds.
-10. The UI does not claim unsupported features are available.
+HTTP client requirements: - Check `response.ok`; Fetch does not reject
+merely because the server returns HTTP 4xx/5xx. - Handle network
+failures, non-success status codes, and invalid response data. - Parse
+JSON only when appropriate. - Keep API calls in a dedicated module
+rather than scattering them through components. - Display safe,
+human-readable errors without stack traces or internal server details. -
+Never put credentials or secrets in `VITE_` environment variables; these
+values can be exposed in the client bundle.
+
+## 7. Form validation
+
+-   `title`: required and non-empty after trimming.
+-   `artist`: required and non-empty after trimming.
+-   `price`: numeric and non-negative; make it strictly positive if that
+    is the agreed business rule.
+-   `stock`: integer and non-negative.
+-   `description`: optional.
+-   `imageUrl`: optional; validate URL format when supplied.
+
+Frontend validation improves usability but does not replace backend
+validation.
+
+## 8. UI states and accessibility
+
+Every data-driven page should handle loading, success, empty results,
+errors, not-found records, and invalid API responses. Forms should show
+submission progress and prevent accidental duplicate submissions. After
+a successful mutation, update the UI or navigate appropriately and show
+confirmation.
+
+Use semantic headings, labels, and buttons; support keyboard navigation
+and visible focus; associate validation messages with inputs; do not
+communicate status using colour alone. Confirm destructive actions
+before deleting.
+
+Use a responsive painting-card grid. Show title, artist, price, and
+image where available, with a fallback for missing or broken images.
+
+## 9. Suggested project structure
+
+``` text
+src/
+  app/
+    App.tsx
+    router.tsx
+  components/
+    PaintingCard.tsx
+    PaintingForm.tsx
+    LoadingState.tsx
+    ErrorState.tsx
+    EmptyState.tsx
+  pages/
+    PaintingListPage.tsx
+    PaintingDetailsPage.tsx
+    CreatePaintingPage.tsx
+    EditPaintingPage.tsx
+    NotFoundPage.tsx
+  api/
+    http.ts
+    paintingsApi.ts
+  types/
+    painting.ts
+  validation/
+    paintingValidation.ts
+  main.tsx
+```
+
+Adapt this structure to the actual project; avoid unnecessary
+abstraction.
+
+## 10. Setup
+
+Use a supported Node.js LTS release. Typical Vite setup:
+
+``` bash
+npm create vite@latest painting-store-ui -- --template react-ts
+cd painting-store-ui
+npm install
+npm run dev
+```
+
+Install Tailwind CSS, shadcn/ui, React Router, and test dependencies
+using the current official instructions for the chosen versions.
+
+Example `.env.local`:
+
+``` text
+VITE_API_BASE_URL=http://localhost:8080
+```
+
+## 11. Testing
+
+-   Test cards and page states.
+-   Test form validation and submission.
+-   Test API success, HTTP errors, network errors, and invalid data.
+-   Test search and navigation.
+-   Test that invalid runtime data is not treated as a valid `Painting`.
+-   Test keyboard operation of essential controls.
+
+## 12. Definition of done
+
+-   Catalogue loads from the backend.
+-   Title search follows the backend contract.
+-   Details page handles valid and unknown IDs.
+-   Mutation UI matches the operations actually supported.
+-   Loading, empty, and error states are implemented.
+-   API responses are validated at runtime before being trusted.
+-   Forms are accessible and validate input.
+-   Tests pass and the production build succeeds.
+-   Setup instructions and environment variables are documented.
+
+## 13. Decisions to confirm
+
+-   Whether list API returns an array or wrapper object.
+-   Whether `description` and `imageUrl` can be null.
+-   Whether price may be zero.
+-   Whether create/update/delete are enabled for intended users.
+-   Whether backend CORS allows the frontend development origin.
