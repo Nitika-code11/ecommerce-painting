@@ -49,3 +49,6 @@ curl -X DELETE http://localhost:8080/api/paintings/1
 
 ## Current scope
 This is a learning starter, not a production-ready commerce platform. Authentication, checkout, payments, order management, image upload/storage, pagination, and production database configuration are planned in `roadmap.md`.
+
+## Frontend
+A React + Vite UI for this API lives in [`frontend/`](frontend/README.md). With the backend running, start it with `cd frontend && npm install && npm run dev` and open `http://localhost:5173`.
