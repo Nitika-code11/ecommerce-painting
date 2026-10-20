@@ -1,6 +1,6 @@
 # Painting Store UI
 
-React frontend for the Painting E-commerce API, built from [`frontend-spec.md`](../frontend-spec.md).
+React frontend for the Painting E-commerce API, built from [`docs/frontend-spec.md`](../docs/frontend-spec.md).
 
 **Stack:** React 19, TypeScript, Vite, Tailwind CSS v4, shadcn/ui-style components (Radix), React Router, Fetch, Vitest + React Testing Library.
 
@@ -14,7 +14,7 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-In development, Vite proxies `/api` to `http://localhost:8080`, so the backend does not need CORS for local work. Point the proxy elsewhere with `API_PROXY_TARGET=http://host:port npm run dev`.
+In development, Vite proxies `/api` to `http://localhost:8080`, so the browser makes same-origin requests. (The backend also allows `http://localhost:5173` via CORS.) Point the proxy elsewhere with `API_PROXY_TARGET=http://host:port npm run dev`.
 
 ## Scripts
 
@@ -40,7 +40,7 @@ Copy `.env.example` to `.env.local` and adjust.
 
 | Route | Screen |
 | --- | --- |
-| `/paintings` | Catalogue with title search (`?title=` in the URL) |
+| `/paintings` | Paged catalogue with title search (`?title=` and `?page=`, 1-based, in the URL) |
 | `/paintings/new` | Create painting |
 | `/paintings/:id` | Painting details, with edit and delete |
 | `/paintings/:id/edit` | Edit painting |
@@ -48,12 +48,12 @@ Copy `.env.example` to `.env.local` and adjust.
 
 ## API contract (as implemented in `PaintingController`)
 
-- `GET /api/paintings[?title=]` returns a raw JSON array; title search is partial and case-insensitive.
+- `GET /api/paintings[?title=&page=&size=]` returns a page envelope `{ content, page, size, totalElements, totalPages }` (`page` is 0-based; default size 12, max 100). Title search is partial and case-insensitive.
 - `GET /api/paintings/{id}` returns `404` for unknown IDs.
 - `POST` returns `201` with the created painting, `PUT` returns `200` with the updated painting, `DELETE` returns `204`.
 - `price` must be at least `0.01`; `stock` is a non-negative integer; `description` and `imageUrl` may be `null`.
 
-Every response is validated at runtime (`src/validation/paintingValidation.ts`) before it is used; unexpected shapes show an error instead of rendering bad data. If the backend adds the spec's `fieldErrors` object to `400` responses, the form shows those messages next to the matching fields.
+Every response is validated at runtime (`src/validation/paintingValidation.ts`) before it is used; unexpected shapes show an error instead of rendering bad data. `400` responses carry a `fieldErrors` object (`{ "title": "must not be blank" }`), and the form shows those messages next to the matching fields.
 
 ## Project structure
 
@@ -64,6 +64,6 @@ src/
   components/   PaintingCard, PaintingForm, states, ui/ (shadcn-style primitives)
   pages/        List, details, create, edit, not found
   validation/   Runtime type guards and form validation
-  types/        Painting, PaintingInput
+  types/        Painting, PaintingPage, PaintingInput
   lib/          Config, formatting, small hooks
 ```

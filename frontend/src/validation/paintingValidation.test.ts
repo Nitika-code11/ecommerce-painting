@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPainting, isPaintingArray, toPaintingInput, validatePaintingForm, type PaintingFormValues } from "./paintingValidation";
+import { isPainting, isPaintingPage, toPaintingInput, validatePaintingForm, type PaintingFormValues } from "./paintingValidation";
 
 const valid = { id: 1, title: "A", artist: "B", price: 10, stock: 0 };
 const formValues: PaintingFormValues = { title: "Sunset", artist: "Amit", description: "", price: "2500", stock: "4", imageUrl: "" };
@@ -25,15 +25,24 @@ describe("isPainting", () => {
   });
 });
 
-describe("isPaintingArray", () => {
-  it("accepts arrays of paintings, including empty", () => {
-    expect(isPaintingArray([])).toBe(true);
-    expect(isPaintingArray([valid, { ...valid, id: 2 }])).toBe(true);
+describe("isPaintingPage", () => {
+  const page = { content: [valid], page: 0, size: 12, totalElements: 1, totalPages: 1 };
+
+  it("accepts a page envelope, including an empty one", () => {
+    expect(isPaintingPage(page)).toBe(true);
+    expect(isPaintingPage({ ...page, content: [], totalElements: 0, totalPages: 0 })).toBe(true);
   });
 
-  it("rejects wrapper objects and arrays containing invalid items", () => {
-    expect(isPaintingArray({ content: [valid] })).toBe(false);
-    expect(isPaintingArray([valid, { id: 2 }])).toBe(false);
+  it.each([
+    ["a bare array", [valid]],
+    ["null", null],
+    ["a missing content array", { ...page, content: undefined }],
+    ["an invalid painting inside content", { ...page, content: [valid, { id: 2 }] }],
+    ["a missing page number", { ...page, page: undefined }],
+    ["a negative total", { ...page, totalElements: -1 }],
+    ["a fractional page count", { ...page, totalPages: 1.5 }],
+  ])("rejects %s", (_label, data) => {
+    expect(isPaintingPage(data)).toBe(false);
   });
 });
 

@@ -1,12 +1,12 @@
 package com.example.painting.painting;
 
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
-
-import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional
 public class PaintingService {
     private final PaintingRepository repository;
 
@@ -14,36 +14,33 @@ public class PaintingService {
         this.repository = repository;
     }
 
-    public Painting create(Painting painting) {
-        painting.setId(null);
-        return repository.save(painting);
+    public Painting create(PaintingRequest request) {
+        return repository.save(new Painting(
+                request.title(), request.artist(), request.description(),
+                request.price(), request.stock(), request.imageUrl()));
     }
 
-    public List<Painting> findAll(String title) {
+    @Transactional(readOnly = true)
+    public Page<Painting> findAll(String title, Pageable pageable) {
         if (title != null && !title.isBlank()) {
-            return repository.findByTitleContainingIgnoreCase(title);
+            return repository.findByTitleContainingIgnoreCase(title.trim(), pageable);
         }
-        return repository.findAll();
+        return repository.findAll(pageable);
     }
 
+    @Transactional(readOnly = true)
     public Painting findById(Long id) {
-        return repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Painting not found: " + id));
+        return repository.findById(id).orElseThrow(() -> new PaintingNotFoundException(id));
     }
 
-    public Painting update(Long id, Painting request) {
+    public Painting update(Long id, PaintingRequest request) {
         Painting existing = findById(id);
-        existing.setTitle(request.getTitle());
-        existing.setArtist(request.getArtist());
-        existing.setDescription(request.getDescription());
-        existing.setPrice(request.getPrice());
-        existing.setStock(request.getStock());
-        existing.setImageUrl(request.getImageUrl());
-        return repository.save(existing);
+        existing.apply(request.title(), request.artist(), request.description(),
+                request.price(), request.stock(), request.imageUrl());
+        return existing;
     }
 
     public void delete(Long id) {
-        Painting existing = findById(id);
-        repository.delete(existing);
+        repository.delete(findById(id));
     }
 }

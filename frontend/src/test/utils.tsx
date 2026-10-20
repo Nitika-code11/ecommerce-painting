@@ -2,7 +2,7 @@ import { render } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { vi } from "vitest";
 import { buildRoutes } from "@/app/router";
-import type { Painting } from "@/types/painting";
+import type { Painting, PaintingPage } from "@/types/painting";
 
 export const sunset: Painting = {
   id: 1,
@@ -23,6 +23,11 @@ export const harbour: Painting = {
   stock: 0,
   imageUrl: null,
 };
+
+/** Builds the backend's page envelope for GET /api/paintings. */
+export function pageOf(content: Painting[], overrides: Partial<PaintingPage> = {}): PaintingPage {
+  return { content, page: 0, size: 12, totalElements: content.length, totalPages: content.length ? 1 : 0, ...overrides };
+}
 
 export function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });

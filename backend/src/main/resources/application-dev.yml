@@ -1,0 +1,6 @@
+# Local development only: seeded sample data (SampleDataLoader) and the H2 console.
+spring:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console

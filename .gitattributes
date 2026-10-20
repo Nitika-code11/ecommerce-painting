@@ -1,0 +1,7 @@
+# Normalise line endings; scripts must keep the endings their shell expects.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.ico binary

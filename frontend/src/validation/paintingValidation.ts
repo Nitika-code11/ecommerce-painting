@@ -1,4 +1,4 @@
-import type { Painting, PaintingInput } from "@/types/painting";
+import type { Painting, PaintingInput, PaintingPage } from "@/types/painting";
 
 const isOptionalString = (v: unknown) => v === undefined || v === null || typeof v === "string";
 
@@ -20,8 +20,19 @@ export function isPainting(data: unknown): data is Painting {
   );
 }
 
-export function isPaintingArray(data: unknown): data is Painting[] {
-  return Array.isArray(data) && data.every(isPainting);
+const isCount = (v: unknown) => typeof v === "number" && Number.isInteger(v) && v >= 0;
+
+export function isPaintingPage(data: unknown): data is PaintingPage {
+  if (typeof data !== "object" || data === null) return false;
+  const value = data as Record<string, unknown>;
+  return (
+    Array.isArray(value.content) &&
+    value.content.every(isPainting) &&
+    isCount(value.page) &&
+    isCount(value.size) &&
+    isCount(value.totalElements) &&
+    isCount(value.totalPages)
+  );
 }
 
 /** Raw form values, as typed by the user. */
@@ -36,7 +47,7 @@ export interface PaintingFormValues {
 
 export type PaintingFormErrors = Partial<Record<keyof PaintingFormValues, string>>;
 
-// Mirrors the backend entity constraints (Painting.java).
+// Mirrors the backend request constraints (PaintingRequest.java).
 export const LIMITS = { title: 150, artist: 120, description: 2000, imageUrl: 1000, minPrice: 0.01 };
 
 function isHttpUrl(value: string): boolean {

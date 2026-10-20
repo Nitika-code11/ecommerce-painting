@@ -1,5 +1,5 @@
-import type { Painting, PaintingInput } from "@/types/painting";
-import { isPainting, isPaintingArray } from "@/validation/paintingValidation";
+import type { Painting, PaintingInput, PaintingPage } from "@/types/painting";
+import { isPainting, isPaintingPage } from "@/validation/paintingValidation";
 import { ApiError, request } from "./http";
 
 const BASE = "/api/paintings";
@@ -8,11 +8,20 @@ function invalid(): never {
   throw new ApiError("invalid-data", "The server sent painting data in an unexpected format.");
 }
 
-// The backend (PaintingController.findAll) returns a raw JSON array.
-export async function listPaintings(title?: string, signal?: AbortSignal): Promise<Painting[]> {
-  const query = title?.trim() ? `?title=${encodeURIComponent(title.trim())}` : "";
+export interface ListParams {
+  title?: string;
+  /** Zero-based page index; omitted means the first page. */
+  page?: number;
+}
+
+// The backend (PaintingController.findAll) returns a page envelope; the page size is the server default.
+export async function listPaintings({ title, page }: ListParams = {}, signal?: AbortSignal): Promise<PaintingPage> {
+  const params = new URLSearchParams();
+  if (title?.trim()) params.set("title", title.trim());
+  if (page) params.set("page", String(page));
+  const query = params.size ? `?${params}` : "";
   const data = await request(`${BASE}${query}`, { signal });
-  return isPaintingArray(data) ? data : invalid();
+  return isPaintingPage(data) ? data : invalid();
 }
 
 export async function getPainting(id: number, signal?: AbortSignal): Promise<Painting> {

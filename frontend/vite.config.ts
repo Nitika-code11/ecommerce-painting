@@ -5,11 +5,11 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 // In development, /api is proxied to the Spring Boot backend so the browser
-// never makes a cross-origin request (the backend has no CORS config yet).
+// never makes a cross-origin request. (The backend also allows the dev origin via CORS.)
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { "@": path.resolve(__dirname, "src") },
+    alias: { "@": path.resolve(import.meta.dirname, "src") },
   },
   server: {
     proxy: {

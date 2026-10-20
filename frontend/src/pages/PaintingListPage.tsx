@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { listPaintings } from "@/api/paintingsApi";
 import { PaintingCard } from "@/components/PaintingCard";
 import { LoadingState } from "@/components/LoadingState";
@@ -18,6 +18,8 @@ export function PaintingListPage() {
   const mutationsEnabled = useMutationsEnabled();
   const [searchParams, setSearchParams] = useSearchParams();
   const title = searchParams.get("title") ?? "";
+  // The URL uses 1-based page numbers; the API is 0-based.
+  const pageNumber = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const [query, setQuery] = useState(title);
 
   // Keep the input in sync when the URL changes (back/forward navigation).
@@ -34,7 +36,15 @@ export function PaintingListPage() {
     return () => window.clearTimeout(timer);
   }, [query]);
 
-  const { state, retry } = useApi((signal) => listPaintings(title, signal), [title]);
+  const goToPage = (target: number) => {
+    const params: Record<string, string> = {};
+    if (title) params.title = title;
+    if (target > 1) params.page = String(target);
+    setSearchParams(params);
+    window.scrollTo({ top: 0 });
+  };
+
+  const { state, retry } = useApi((signal) => listPaintings({ title, page: pageNumber - 1 }, signal), [title, pageNumber]);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -77,7 +87,16 @@ export function PaintingListPage() {
         <ErrorState title="Couldn't load paintings" message={errorMessage(state.error)} onRetry={retry} />
       )}
 
-      {state.status === "success" && state.data.length === 0 && (
+      {state.status === "success" && state.data.content.length === 0 && state.data.totalElements > 0 && (
+        <EmptyState title="That page doesn't exist">
+          <p className="text-muted-foreground">There are only {state.data.totalPages} pages of results.</p>
+          <Button variant="outline" onClick={() => goToPage(1)}>
+            Back to the first page
+          </Button>
+        </EmptyState>
+      )}
+
+      {state.status === "success" && state.data.totalElements === 0 && (
         title ? (
           <EmptyState title={`No paintings match “${title}”`}>
             <p className="text-muted-foreground">Try a different title, or clear the search.</p>
@@ -98,14 +117,14 @@ export function PaintingListPage() {
         )
       )}
 
-      {state.status === "success" && state.data.length > 0 && (
+      {state.status === "success" && state.data.content.length > 0 && (
         <>
           <p role="status" className="mb-4 text-sm text-muted-foreground">
-            {state.data.length} {state.data.length === 1 ? "painting" : "paintings"}
+            {state.data.totalElements} {state.data.totalElements === 1 ? "painting" : "paintings"}
             {title && <> matching “{title}”</>}
           </p>
           <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {state.data.map((painting) => (
+            {state.data.content.map((painting) => (
               <li key={painting.id} className="flex">
                 <div className="w-full">
                   <PaintingCard painting={painting} />
@@ -113,6 +132,21 @@ export function PaintingListPage() {
               </li>
             ))}
           </ul>
+          {state.data.totalPages > 1 && (
+            <nav aria-label="Pagination" className="mt-10 flex items-center justify-center gap-4">
+              <Button variant="outline" disabled={pageNumber <= 1} onClick={() => goToPage(pageNumber - 1)}>
+                <ChevronLeft aria-hidden="true" />
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground" aria-live="polite">
+                Page {state.data.page + 1} of {state.data.totalPages}
+              </span>
+              <Button variant="outline" disabled={pageNumber >= state.data.totalPages} onClick={() => goToPage(pageNumber + 1)}>
+                Next
+                <ChevronRight aria-hidden="true" />
+              </Button>
+            </nav>
+          )}
         </>
       )}
     </section>

@@ -1,14 +1,18 @@
 package com.example.painting.painting;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/paintings")
 public class PaintingController {
+    static final int MAX_PAGE_SIZE = 100;
+
     private final PaintingService service;
 
     public PaintingController(PaintingService service) {
@@ -17,23 +21,27 @@ public class PaintingController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Painting create(@Valid @RequestBody Painting painting) {
-        return service.create(painting);
+    public PaintingResponse create(@Valid @RequestBody PaintingRequest request) {
+        return PaintingResponse.from(service.create(request));
     }
 
     @GetMapping
-    public List<Painting> findAll(@RequestParam(required = false) String title) {
-        return service.findAll(title);
+    public PageResponse<PaintingResponse> findAll(
+            @RequestParam(required = false) String title,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "12") @Min(1) @Max(MAX_PAGE_SIZE) int size) {
+        var pageable = PageRequest.of(page, size, Sort.by("id"));
+        return PageResponse.from(service.findAll(title, pageable), PaintingResponse::from);
     }
 
     @GetMapping("/{id}")
-    public Painting findById(@PathVariable Long id) {
-        return service.findById(id);
+    public PaintingResponse findById(@PathVariable Long id) {
+        return PaintingResponse.from(service.findById(id));
     }
 
     @PutMapping("/{id}")
-    public Painting update(@PathVariable Long id, @Valid @RequestBody Painting painting) {
-        return service.update(id, painting);
+    public PaintingResponse update(@PathVariable Long id, @Valid @RequestBody PaintingRequest request) {
+        return PaintingResponse.from(service.update(id, request));
     }
 
     @DeleteMapping("/{id}")

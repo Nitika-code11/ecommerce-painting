@@ -1,13 +1,15 @@
 package com.example.painting.painting;
 
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-/** Seeds a sample gallery of public-domain artworks (images from Wikimedia Commons) when the database is empty. */
+/** Seeds a sample gallery of public-domain artworks (images from Wikimedia Commons) when the database is empty. Dev profile only. */
 @Component
+@Profile("dev")
 public class SampleDataLoader implements CommandLineRunner {
     private static final String COMMONS = "https://thumb.wikimedia.org/wikipedia/commons/thumb/";
 
@@ -56,13 +58,6 @@ public class SampleDataLoader implements CommandLineRunner {
     }
 
     private static Painting painting(String title, String artist, String price, int stock, String description, String imagePath) {
-        Painting p = new Painting();
-        p.setTitle(title);
-        p.setArtist(artist);
-        p.setPrice(new BigDecimal(price));
-        p.setStock(stock);
-        p.setDescription(description);
-        p.setImageUrl(COMMONS + imagePath);
-        return p;
+        return new Painting(title, artist, description, new BigDecimal(price), stock, COMMONS + imagePath);
     }
 }

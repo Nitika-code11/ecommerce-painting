@@ -1,23 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { jsonResponse, mockFetch, sunset } from "@/test/utils";
+import { jsonResponse, mockFetch, pageOf, sunset } from "@/test/utils";
 import { ApiError } from "./http";
 import { createPainting, deletePainting, getPainting, listPaintings, updatePainting } from "./paintingsApi";
 
 describe("paintingsApi", () => {
-  it("lists paintings and passes the title search as a query param", async () => {
-    const fetchMock = mockFetch(() => jsonResponse([sunset]));
-    await expect(listPaintings(" sun set ")).resolves.toEqual([sunset]);
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/paintings?title=sun%20set");
+  it("lists a page of paintings and passes the title search as a query param", async () => {
+    const fetchMock = mockFetch(() => jsonResponse(pageOf([sunset])));
+    await expect(listPaintings({ title: " sun set " })).resolves.toEqual(pageOf([sunset]));
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/paintings?title=sun+set");
   });
 
-  it("omits the query param for a blank search", async () => {
-    const fetchMock = mockFetch(() => jsonResponse([]));
-    await listPaintings("  ");
+  it("requests the given zero-based page", async () => {
+    const fetchMock = mockFetch(() => jsonResponse(pageOf([sunset], { page: 2, totalElements: 30, totalPages: 3 })));
+    await listPaintings({ title: "a", page: 2 });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/paintings?title=a&page=2");
+  });
+
+  it("omits the query params for a blank search on the first page", async () => {
+    const fetchMock = mockFetch(() => jsonResponse(pageOf([])));
+    await listPaintings({ title: "  ", page: 0 });
     expect(fetchMock.mock.calls[0][0]).toBe("/api/paintings");
   });
 
   it("rejects invalid response data instead of trusting it", async () => {
-    mockFetch(() => jsonResponse([{ id: "1", title: "Bad" }]));
+    mockFetch(() => jsonResponse(pageOf([{ id: "1", title: "Bad" } as never])));
+    await expect(listPaintings()).rejects.toMatchObject({ kind: "invalid-data" });
+  });
+
+  it("rejects a bare array (the pre-pagination format)", async () => {
+    mockFetch(() => jsonResponse([sunset]));
     await expect(listPaintings()).rejects.toMatchObject({ kind: "invalid-data" });
   });
 

@@ -8,11 +8,11 @@
 - [x] H2 database for local development
 
 ## Phase 2: Catalogue improvements
-- [ ] Add pagination and sorting
-- [ ] Add filters: artist, price range, medium, style, availability
+- [x] Add pagination (sorting is still open)
+- [ ] Add sorting and filters: artist, price range, medium, style, availability
 - [ ] Add categories and tags
-- [ ] Add DTOs so persistence entities are not exposed directly
-- [ ] Add integration tests for API and validation
+- [x] Add DTOs so persistence entities are not exposed directly
+- [x] Add integration tests for API and validation
 
 ## Phase 3: Customers and security
 - [ ] Add customer registration and login
@@ -43,7 +43,7 @@
 - [ ] Set AWS Budget alerts before creating billable resources
 
 ## Phase 7: CI/CD and quality
-- [ ] Add GitHub Actions CI (tests + build)
+- [x] Add GitHub Actions CI (tests + build)
 - [ ] Use GitHub Actions OIDC for AWS access; avoid long-lived AWS keys
 - [ ] Add dependency/security scanning
 - [ ] Add API documentation with OpenAPI/Swagger

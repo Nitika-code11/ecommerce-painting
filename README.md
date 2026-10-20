@@ -1,54 +1,119 @@
-# Painting Ecommerce API
+# Painting Store
 
-A starter Spring Boot REST API for an online store that sells paintings.
+[![CI](https://github.com/Nitika-code11/ecommerce-painting/actions/workflows/ci.yml/badge.svg)](https://github.com/Nitika-code11/ecommerce-painting/actions/workflows/ci.yml)
 
-## Stack
-- Java 17, Spring Boot 3.3, Maven
-- Spring Web, Spring Data JPA, Bean Validation
-- H2 in-memory database for local development
+A full-stack catalogue for an online painting store: a Spring Boot REST API and a React single-page app.
 
-## Run
-Prerequisites: JDK 17+ and Maven 3.8+.
+| | |
+| --- | --- |
+| **Backend** | Java 17, Spring Boot 3.3, Spring Data JPA, Bean Validation, H2 (in-memory), Maven |
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4, React Router, Vitest + Testing Library |
+| **CI** | GitHub Actions: backend `verify` and frontend test + build on every push and pull request |
+
+## Quick start
+
+Prerequisites: JDK 17+ and Node.js 20+ (the Maven wrapper downloads Maven itself).
 
 ```bash
-mvn spring-boot:run
+# 1. API on http://localhost:8080
+cd backend
+./mvnw spring-boot:run          # Windows: mvnw.cmd spring-boot:run
+
+# 2. UI on http://localhost:5173 (in a second terminal)
+cd frontend
+npm install
+npm run dev
 ```
 
-API base URL: `http://localhost:8080/api/paintings`
+The default `dev` profile seeds ten public-domain paintings (images from Wikimedia Commons), so the catalogue is populated on first start. Data lives in memory and resets on every restart.
 
-The H2 console is available at `http://localhost:8080/h2-console` (JDBC URL: `jdbc:h2:mem:paintingdb`, username `sa`, blank password). This is for local development only.
+## Architecture
 
-## Sample requests
+```text
+Browser ──► React SPA (Vite) ──/api──► Spring Boot ──► H2 (dev)
+            validates responses        controller → service → repository
+            at runtime                 DTOs at the edge, JPA entity inside
+```
 
-Create a painting:
+- **Layering:** `PaintingController` (HTTP) → `PaintingService` (use cases, transactions) → `PaintingRepository` (Spring Data JPA).
+- **API contract:** requests and responses are DTOs (`PaintingRequest`, `PaintingResponse`), so the JSON shape is independent of the database schema. Validation lives on the request DTO.
+- **Errors:** every failure, including framework errors such as `405` or malformed JSON, returns the same `ApiError` body (see below). Stack traces are never exposed.
+- **Frontend safety:** every API response is checked at runtime before it is rendered, and `400` field errors are shown next to the matching form fields.
+- **Dev networking:** Vite proxies `/api` to the backend; the backend also allows the configured origins via CORS for deployed setups.
+
+## API
+
+Base path: `/api/paintings`
+
+| Method | Path | Description | Success |
+| --- | --- | --- | --- |
+| `GET` | `/api/paintings?title=&page=&size=` | Paged list; `title` is a case-insensitive substring match | `200` |
+| `GET` | `/api/paintings/{id}` | One painting | `200` |
+| `POST` | `/api/paintings` | Create | `201` |
+| `PUT` | `/api/paintings/{id}` | Replace all editable fields | `200` |
+| `DELETE` | `/api/paintings/{id}` | Delete | `204` |
+| `GET` | `/actuator/health` | Liveness | `200` |
+
+`page` is zero-based (default `0`); `size` defaults to `12` and is capped at `100`. Results are ordered by `id`.
+
+Page response:
+
+```json
+{ "content": [ { "id": 1, "title": "Sunset", "artist": "A. Sharma", "description": "Acrylic", "price": 4500.00, "stock": 3, "imageUrl": "https://example.com/sunset.jpg" } ],
+  "page": 0, "size": 12, "totalElements": 1, "totalPages": 1 }
+```
+
+Validation rules: `title` ≤ 150 chars and `artist` ≤ 120 chars (both required), `description` ≤ 2000, `price` ≥ 0.01 with at most 2 decimals, `stock` ≥ 0, `imageUrl` an `http(s)` URL ≤ 1000 chars (optional).
+
+Error response (all failures):
+
+```json
+{ "timestamp": "2026-01-01T10:00:00Z", "status": 400, "error": "Bad Request",
+  "message": "Request validation failed", "path": "/api/paintings",
+  "fieldErrors": { "title": "must not be blank" } }
+```
+
+Example:
+
 ```bash
-curl -X POST http://localhost:8080/api/paintings \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Sunset Over Hills","artist":"A. Sharma","description":"Acrylic on canvas","price":4500.00,"stock":3,"imageUrl":"https://example.com/sunset.jpg"}'
+curl -X POST http://localhost:8080/api/paintings -H "Content-Type: application/json" \
+  -d '{"title":"Sunset Over Hills","artist":"A. Sharma","price":4500.00,"stock":3}'
 ```
 
-List paintings:
+## Configuration
+
+Backend (`backend/src/main/resources/application*.yml`):
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| `SPRING_PROFILES_ACTIVE` | `dev` | `dev` enables seed data and the H2 console (`/h2-console`, JDBC URL `jdbc:h2:mem:paintingdb`, user `sa`, empty password). Use any other profile to disable both. |
+| `APP_CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call `/api/**`. |
+
+Frontend: see [`frontend/README.md`](frontend/README.md) (`VITE_API_BASE_URL`, `VITE_ENABLE_MUTATIONS`).
+
+## Testing
+
 ```bash
-curl http://localhost:8080/api/paintings
+cd backend  && ./mvnw verify    # unit (Mockito), repository (@DataJpaTest) and API integration tests (MockMvc + H2)
+cd frontend && npm test         # component, page, API-client and validation tests
 ```
 
-Get one:
-```bash
-curl http://localhost:8080/api/paintings/1
+## Repository layout
+
+```text
+backend/    Spring Boot API (Maven wrapper included)
+frontend/   React app
+docs/       Specs and roadmap (backend-spec.md, frontend-spec.md, roadmap.md)
+.github/    CI workflow
 ```
 
-Search by title:
-```bash
-curl "http://localhost:8080/api/paintings?title=sunset"
-```
+## Scope and known limitations
 
-Delete:
-```bash
-curl -X DELETE http://localhost:8080/api/paintings/1
-```
+- **No authentication or authorisation yet:** create, update and delete are open. Do not expose this API publicly as is. Planned in [`docs/roadmap.md`](docs/roadmap.md) (Phase 3).
+- **H2 is in-memory and development-only.** A PostgreSQL profile with Flyway migrations is on the roadmap; the schema is currently generated by Hibernate.
+- **Images are URLs only** (no upload/storage yet). The seed data hot-links Wikimedia Commons.
+- Checkout, payments and orders are out of scope for this milestone.
 
-## Current scope
-This is a learning starter, not a production-ready commerce platform. Authentication, checkout, payments, order management, image upload/storage, pagination, and production database configuration are planned in `roadmap.md`.
+## License
 
-## Frontend
-A React + Vite UI for this API lives in [`frontend/`](frontend/README.md). With the backend running, start it with `cd frontend && npm install && npm run dev` and open `http://localhost:5173`.
+[MIT](LICENSE)
