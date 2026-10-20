@@ -1,0 +1,12 @@
+﻿# dependencies / build output
+node_modules/
+dist/
+target/
+
+# env and local files
+.env
+.env.*
+!.env.example
+*.log
+.idea/
+.vscode/
