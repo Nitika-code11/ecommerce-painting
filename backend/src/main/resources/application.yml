@@ -1,34 +1,59 @@
+# Base configuration, used by every profile. Profile files (application-dev.yml) override or add to it.
+# Values like ${NAME:default} read the environment variable NAME, or use "default" when it is not set.
 spring:
   application:
     name: painting-ecommerce
   profiles:
-    # `mvn spring-boot:run` works out of the box; override with SPRING_PROFILES_ACTIVE.
+    # `mvnw spring-boot:run` works out of the box (dev profile); override with SPRING_PROFILES_ACTIVE.
     default: dev
   datasource:
+    # In-memory H2 database. DB_CLOSE_DELAY=-1 keeps it alive until the JVM exits, not when the last connection closes.
     url: jdbc:h2:mem:paintingdb;DB_CLOSE_DELAY=-1
     username: sa
     password:
   jpa:
+    # false = do not keep a database session open while the view/JSON is rendered (avoids hidden lazy queries).
     open-in-view: false
     hibernate:
-      # Flyway owns the schema; Hibernate only checks that the entities match it.
+      # Flyway owns the schema; Hibernate only checks that the entities match it and fails startup if not.
       ddl-auto: validate
   flyway:
+    # Where migration scripts live. The dev profile adds a second location for sample data.
     locations: classpath:db/migration
 
 server:
   port: 8080
   error:
+    # Never put stack traces or exception messages in default error pages.
     include-stacktrace: never
     include-message: never
+
+springdoc:
+  # Off by default so a deployed API does not publish its own map; the dev profile turns them on.
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
 
 management:
   endpoints:
     web:
       exposure:
+        # Expose only /actuator/health; other actuator endpoints (env, beans, ...) can leak internals.
         include: health
 
+# Our own settings (bound to SecurityProperties and WebConfig).
 app:
   cors:
     # Comma-separated list of browser origins allowed to call /api/**.
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  security:
+    jwt:
+      # No default on purpose: set APP_JWT_SECRET (32+ bytes). Only the dev profile ships a throwaway key.
+      secret: ${APP_JWT_SECRET}
+      # How long a login stays valid.
+      ttl: ${APP_JWT_TTL:60m}
+    bootstrap-admin:
+      # Optional first ADMIN account, created at startup if it does not exist.
+      username: ${APP_ADMIN_USERNAME:}
+      password: ${APP_ADMIN_PASSWORD:}
