@@ -1,5 +1,7 @@
-# Local development only: seeded sample data (SampleDataLoader) and the H2 console.
+# Local development only: sample data (db/dev migrations) and the H2 console.
 spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/dev
   h2:
     console:
       enabled: true

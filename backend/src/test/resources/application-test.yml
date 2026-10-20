@@ -1,0 +1,4 @@
+# Own database name so test contexts never share state with a dev-profile context in the same JVM.
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1

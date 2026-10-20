@@ -51,7 +51,7 @@
 
 ## Suggested build order
 1. Finish catalogue tests and DTOs.
-2. Add PostgreSQL and migrations (Flyway).
+2. Add PostgreSQL (Flyway migrations are already in place).
 3. Add authentication and admin authorization.
 4. Implement cart and order workflows.
 5. Add sandbox payments and S3 image storage.
