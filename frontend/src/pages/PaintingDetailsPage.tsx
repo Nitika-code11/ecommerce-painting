@@ -18,25 +18,28 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useMutationsEnabled } from "@/lib/config";
+import { useCanManage } from "@/lib/auth";
 import { errorMessage, isNotFound, parseId } from "@/lib/errors";
 import { formatPrice } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { Painting } from "@/types/painting";
 import { NotFoundPage } from "./NotFoundPage";
 
+/** Route wrapper: validates the :id in the URL (e.g. /paintings/abc is a 404) before loading anything. */
 export function PaintingDetailsPage() {
   const id = parseId(useParams().id);
   if (id === null) return <NotFoundPage message="That painting doesn't exist." />;
   return <PaintingDetails id={id} />;
 }
 
+/** Full page for one painting: big image, details, and (for administrators only) edit and delete actions. */
 function PaintingDetails({ id }: { id: number }) {
-  const mutationsEnabled = useMutationsEnabled();
+  const canManage = useCanManage();
   const { state, retry } = useApi((signal) => getPainting(id, signal), [id]);
 
   if (state.status === "loading") return <LoadingState label="Loading painting…" />;
   if (state.status === "error") {
+    // A 404 from the server gets the friendly "not found" page; other errors get a retryable error message.
     if (isNotFound(state.error)) return <NotFoundPage message="That painting doesn't exist or has been removed." />;
     return <ErrorState title="Couldn't load this painting" message={errorMessage(state.error)} onRetry={retry} />;
   }
@@ -72,19 +75,21 @@ function PaintingDetails({ id }: { id: number }) {
               <p className="text-muted-foreground">No description provided.</p>
             )}
           </section>
-          {mutationsEnabled && <AdminActions painting={painting} />}
+          {canManage && <AdminActions painting={painting} />}
         </div>
       </div>
     </article>
   );
 }
 
+/** Edit link and a Delete button that asks for confirmation first. Only rendered for administrators. */
 function AdminActions({ painting }: { painting: Painting }) {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [open, setOpen] = useState(false);       // is the confirmation dialog open?
+  const [deleting, setDeleting] = useState(false); // is the delete request running?
   const [error, setError] = useState<string | null>(null);
 
+  /** Runs when the user confirms. The dialog stays open until the request finishes, so errors can be shown in it. */
   const handleDelete = async (event: MouseEvent) => {
     event.preventDefault(); // keep the dialog open until the request finishes
     if (deleting) return;

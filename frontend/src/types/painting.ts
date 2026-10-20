@@ -1,3 +1,6 @@
+// Shapes of the data exchanged with the backend (they mirror PaintingResponse / PaintingRequest in the API).
+
+/** A painting as returned by the API. */
 export interface Painting {
   id: number;
   title: string;
@@ -17,6 +20,7 @@ export interface PaintingPage {
   totalPages: number;
 }
 
+/** What the UI sends when creating or replacing a painting (no id: the server assigns it). */
 export interface PaintingInput {
   title: string;
   artist: string;

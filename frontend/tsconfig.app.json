@@ -1,20 +1,22 @@
+// TypeScript settings for everything under src/ (the app, plus its tests). TypeScript only type-checks here;
+// Vite does the actual compiling, hence "noEmit".
 {
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo", // cache so incremental checks are fast
+    "target": "ES2022",                                  // modern JavaScript output level
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],            // built-in types available: language + browser APIs
     "module": "ESNext",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "moduleResolution": "bundler",                       // resolve imports the way Vite does
+    "jsx": "react-jsx",                                  // JSX needs no `import React`
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"], // global types: import.meta.env, describe/it, toBeInTheDocument
+    "strict": true,                                      // all strict checks: no implicit any, null checks...
+    "noUnusedLocals": true,                              // error on unused variables
+    "noUnusedParameters": true,                          // error on unused function parameters
     "noFallthroughCasesInSwitch": true,
-    "skipLibCheck": true,
-    "isolatedModules": true,
+    "skipLibCheck": true,                                // don't re-check third-party .d.ts files (faster)
+    "isolatedModules": true,                             // each file must be compilable on its own (needed by Vite)
     "noEmit": true,
-    "paths": { "@/*": ["./src/*"] }
+    "paths": { "@/*": ["./src/*"] }                      // "@/x" means "src/x" (matches the alias in vite.config.ts)
   },
   "include": ["src"]
 }

@@ -8,12 +8,14 @@ import { useApi } from "@/lib/useApi";
 import { toFormValues } from "@/validation/paintingValidation";
 import { NotFoundPage } from "./NotFoundPage";
 
+/** Route wrapper: validates the :id in the URL before doing any work. */
 export function EditPaintingPage() {
   const id = parseId(useParams().id);
   if (id === null) return <NotFoundPage message="That painting doesn't exist." />;
   return <EditPainting id={id} />;
 }
 
+/** "Edit painting" screen (administrators only): loads the painting, then shows the form filled in. */
 function EditPainting({ id }: { id: number }) {
   const navigate = useNavigate();
   const { state, retry } = useApi((signal) => getPainting(id, signal), [id]);
@@ -31,7 +33,7 @@ function EditPainting({ id }: { id: number }) {
       </h1>
       <div className="rounded-lg border bg-card p-6 shadow-sm">
         <PaintingForm
-          initialValues={toFormValues(state.data)}
+          initialValues={toFormValues(state.data)} // pre-fill with the current values
           submitLabel="Save changes"
           submittingLabel="Saving…"
           onCancel={() => navigate(`/paintings/${id}`)}

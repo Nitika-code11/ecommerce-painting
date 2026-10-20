@@ -4,9 +4,11 @@ import { Button } from "./ui/button";
 interface ErrorStateProps {
   title?: string;
   message: string;
+  /** When given, a "Try again" button is shown and calls this. */
   onRetry?: () => void;
 }
 
+/** Shown when loading data fails. role="alert" makes screen readers announce it immediately. */
 export function ErrorState({ title = "Something went wrong", message, onRetry }: ErrorStateProps) {
   return (
     <div role="alert" className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">

@@ -1,13 +1,17 @@
 <!doctype html>
+<!-- The single HTML page of the single-page app. React renders everything inside #root. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Makes the layout use the device's real width on phones instead of a zoomed-out desktop view. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Painting Store</title>
   </head>
   <body>
+    <!-- React mounts here (see src/main.tsx). -->
     <div id="root"></div>
+    <!-- Vite serves and bundles this module; it is the app's JavaScript entry point. -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

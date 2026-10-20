@@ -15,15 +15,20 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 
 interface PaintingFormProps {
+  /** Starting text for each field (empty for "add", the painting's values for "edit"). */
   initialValues: PaintingFormValues;
+  /** Button text normally, and while the request is running. */
   submitLabel: string;
   submittingLabel: string;
+  /** Called with the validated input. Should throw (e.g. an ApiError) if saving fails, so the form can show why. */
   onSubmit: (input: PaintingInput) => Promise<void>;
   onCancel: () => void;
 }
 
+// Field order on the page; used to focus the first invalid field.
 const FIELD_ORDER: (keyof PaintingFormValues)[] = ["title", "artist", "price", "stock", "imageUrl", "description"];
 
+/** Keeps only server-reported errors for fields this form actually has (ignores unknown field names). */
 function pickFieldErrors(fieldErrors: Record<string, string> | undefined): PaintingFormErrors {
   const result: PaintingFormErrors = {};
   if (!fieldErrors) return result;
@@ -33,29 +38,36 @@ function pickFieldErrors(fieldErrors: Record<string, string> | undefined): Paint
   return result;
 }
 
+/**
+ * The add/edit form. It owns the typed text, validates before sending, shows errors next to the right field
+ * (from either the client rules or the server's 400 response), and prevents double submits.
+ */
 export function PaintingForm({ initialValues, submitLabel, submittingLabel, onSubmit, onCancel }: PaintingFormProps) {
-  const [values, setValues] = useState(initialValues);
-  const [errors, setErrors] = useState<PaintingFormErrors>({});
-  const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [values, setValues] = useState(initialValues);           // what the user has typed
+  const [errors, setErrors] = useState<PaintingFormErrors>({});  // per-field messages
+  const [formError, setFormError] = useState<string | null>(null); // a message about the form as a whole
+  const [submitting, setSubmitting] = useState(false);           // true while the request is running
   const formRef = useRef<HTMLFormElement>(null);
-  const idPrefix = useId();
+  const idPrefix = useId(); // unique per form instance, so label/input ids never clash
 
+  /** Moves keyboard focus to the first field with an error, so keyboard and screen-reader users land on it. */
   const focusFirstError = (errs: PaintingFormErrors) => {
     const first = FIELD_ORDER.find((key) => errs[key]);
     if (first) formRef.current?.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
   };
 
+  /** Updates one field, and clears that field's error as soon as the user starts correcting it. */
   const handleChange = (field: keyof PaintingFormValues, value: string) => {
     setValues((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
   const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (submitting) return;
+    event.preventDefault(); // stop the browser's own full-page form submission
+    if (submitting) return; // ignore a second click while the first request is running
     setFormError(null);
 
+    // 1) Client-side validation for instant feedback; stop here if anything is wrong.
     const validationErrors = validatePaintingForm(values);
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
@@ -63,6 +75,7 @@ export function PaintingForm({ initialValues, submitLabel, submittingLabel, onSu
       return;
     }
 
+    // 2) Send it. On failure, show the server's field messages (if any) plus a general message.
     setSubmitting(true);
     try {
       await onSubmit(toPaintingInput(values));
@@ -73,8 +86,10 @@ export function PaintingForm({ initialValues, submitLabel, submittingLabel, onSu
       setFormError(error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
       setSubmitting(false);
     }
+    // On success the caller navigates away, so submitting is intentionally left true.
   };
 
+  /** Props shared by every input: id, name, current value, disabled-while-saving, and accessibility links to its error. */
   const field = (name: keyof PaintingFormValues) => {
     const id = `${idPrefix}-${name}`;
     const errorId = `${id}-error`;
@@ -89,6 +104,7 @@ export function PaintingForm({ initialValues, submitLabel, submittingLabel, onSu
     };
   };
 
+  /** The red message under a field (with a screen-reader-only "Error:" prefix), or nothing if the field is valid. */
   const errorText = (name: keyof PaintingFormValues) =>
     errors[name] ? (
       <p id={`${idPrefix}-${name}-error`} className="text-sm text-destructive">
@@ -98,7 +114,9 @@ export function PaintingForm({ initialValues, submitLabel, submittingLabel, onSu
     ) : null;
 
   return (
+    // noValidate: we show our own, consistent messages instead of the browser's pop-ups.
     <form ref={formRef} onSubmit={handleSubmit} noValidate className="grid gap-5" aria-busy={submitting}>
+      {/* Form-level error (e.g. "Please sign in", "server problem"); role="alert" announces it. */}
       {formError && (
         <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {formError}

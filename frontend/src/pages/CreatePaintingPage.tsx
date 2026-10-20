@@ -3,6 +3,7 @@ import { createPainting } from "@/api/paintingsApi";
 import { PaintingForm } from "@/components/PaintingForm";
 import { toFormValues } from "@/validation/paintingValidation";
 
+/** "Add a painting" screen (administrators only; the route is wrapped in RequireAdmin). */
 export function CreatePaintingPage() {
   const navigate = useNavigate();
   return (
@@ -12,12 +13,13 @@ export function CreatePaintingPage() {
       </h1>
       <div className="rounded-lg border bg-card p-6 shadow-sm">
         <PaintingForm
-          initialValues={toFormValues()}
+          initialValues={toFormValues()} // empty form
           submitLabel="Add painting"
           submittingLabel="Adding…"
           onCancel={() => navigate("/paintings")}
           onSubmit={async (input) => {
             const created = await createPainting(input);
+            // Go to the new painting's page and pass a one-off confirmation message in router state.
             navigate(`/paintings/${created.id}`, { state: { notice: `“${created.title}” was added.` } });
           }}
         />

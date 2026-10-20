@@ -1,3 +1,5 @@
+// Page tests for the add and edit forms: client-side validation, accessibility of the error messages,
+// showing the server's field errors, and the request that is actually sent. Runs signed in as an administrator.
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";

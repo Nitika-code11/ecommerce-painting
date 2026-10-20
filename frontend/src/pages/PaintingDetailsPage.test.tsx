@@ -1,3 +1,5 @@
+// Page test: the painting details screen, including the admin-only edit/delete flow. The backend is replaced
+// by fake HTTP responses (mockFetch) and the whole app is rendered at the URL under test (renderRoute, signed in as admin).
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";

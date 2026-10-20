@@ -1,9 +1,11 @@
+// Component test: what a single catalogue card shows (title, price, stock, image or placeholder).
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { harbour, sunset } from "@/test/utils";
 import { PaintingCard } from "./PaintingCard";
 
+// The card contains a router <Link>, so it must be rendered inside a router (an in-memory one for tests).
 const renderCard = (painting = sunset) =>
   render(
     <MemoryRouter>

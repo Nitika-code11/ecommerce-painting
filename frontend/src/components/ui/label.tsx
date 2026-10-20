@@ -1,6 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
+/** A styled form label. Connect it to a field with htmlFor/id so clicking it focuses the field. */
 export const Label = React.forwardRef<HTMLLabelElement, React.ComponentProps<"label">>(
   ({ className, ...props }, ref) => (
     <label ref={ref} className={cn("text-sm font-medium leading-none", className)} {...props} />

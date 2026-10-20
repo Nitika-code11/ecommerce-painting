@@ -1,3 +1,5 @@
+// Page test for the catalogue: loading, empty, error and malformed-data states, title search (and its URL),
+// and pagination. Responses use the backend's page envelope, built with pageOf().
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -67,6 +69,7 @@ describe("PaintingListPage", () => {
   });
 
   describe("pagination", () => {
+    // Fake backend with two pages (13 paintings): page 0 returns Sunset, any later page returns Harbour.
     const paged = (url: string) => {
       const page = Number(new URL(url, "http://x").searchParams.get("page") ?? 0);
       return jsonResponse(pageOf(page === 0 ? [sunset] : [harbour], { page, totalElements: 13, totalPages: 2 }));

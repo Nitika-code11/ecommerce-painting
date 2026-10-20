@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
+/** 404 page: used for unknown URLs and for paintings that don't exist. The message can be customised per case. */
 export function NotFoundPage({ message = "We couldn't find that page." }: { message?: string }) {
   return (
     <section aria-labelledby="not-found-heading" className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">

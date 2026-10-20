@@ -1,3 +1,4 @@
+// Pure-function tests (no UI, no network): the runtime checks of server data and the form validation rules.
 import { describe, expect, it } from "vitest";
 import { isPainting, isPaintingPage, toPaintingInput, validatePaintingForm, type PaintingFormValues } from "./paintingValidation";
 

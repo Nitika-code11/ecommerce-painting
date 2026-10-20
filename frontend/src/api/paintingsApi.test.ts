@@ -1,3 +1,5 @@
+// Tests of the API client functions with a fake fetch: the URLs and bodies they send, how they validate what
+// comes back, and how failures (HTTP errors, bad data, no network) are reported.
 import { describe, expect, it } from "vitest";
 import { jsonResponse, mockFetch, pageOf, sunset } from "@/test/utils";
 import { ApiError } from "./http";

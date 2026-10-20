@@ -41,16 +41,18 @@ Copy `.env.example` to `.env.local` and adjust.
 | Route | Screen |
 | --- | --- |
 | `/paintings` | Paged catalogue with title search (`?title=` and `?page=`, 1-based, in the URL) |
-| `/paintings/new` | Create painting |
-| `/paintings/:id` | Painting details, with edit and delete |
-| `/paintings/:id/edit` | Edit painting |
+| `/login` | Sign in (`?next=` is honoured for same-site paths only) |
+| `/paintings/new` | Create painting (administrators only) |
+| `/paintings/:id` | Painting details; edit and delete are shown to administrators only |
+| `/paintings/:id/edit` | Edit painting (administrators only) |
 | `*` | Not found |
 
 ## API contract (as implemented in `PaintingController`)
 
 - `GET /api/paintings[?title=&page=&size=]` returns a page envelope `{ content, page, size, totalElements, totalPages }` (`page` is 0-based; default size 12, max 100). Title search is partial and case-insensitive.
 - `GET /api/paintings/{id}` returns `404` for unknown IDs.
-- `POST` returns `201` with the created painting, `PUT` returns `200` with the updated painting, `DELETE` returns `204`.
+- `POST` returns `201` with the created painting, `PUT` returns `200` with the updated painting, `DELETE` returns `204`. These three need `Authorization: Bearer <token>` from an `ADMIN` (`401` without a valid token, `403` for other roles).
+- `POST /api/auth/login` takes `{ username, password }` and returns `{ accessToken, tokenType, expiresIn }`. The token is kept in `sessionStorage` (`src/lib/auth.ts`) and attached by `src/api/http.ts`. If the server rejects it, it is dropped and public reads are retried as a guest.
 - `price` must be at least `0.01`; `stock` is a non-negative integer; `description` and `imageUrl` may be `null`.
 
 Every response is validated at runtime (`src/validation/paintingValidation.ts`) before it is used; unexpected shapes show an error instead of rendering bad data. `400` responses carry a `fieldErrors` object (`{ "title": "must not be blank" }`), and the form shows those messages next to the matching fields.

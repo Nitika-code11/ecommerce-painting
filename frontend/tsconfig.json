@@ -1,3 +1,5 @@
+// Root TypeScript config. It only points at two real configs ("project references"):
+// one for the app code (and its tests) and one for the build tooling, so each gets the right settings.
 {
   "files": [],
   "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]

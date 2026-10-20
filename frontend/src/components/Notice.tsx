@@ -9,15 +9,18 @@ import { useLocation, useNavigate } from "react-router-dom";
 export function Notice() {
   const location = useLocation();
   const navigate = useNavigate();
+  // Router state is untyped, so check it really is a string before showing it.
   const notice = (location.state as { notice?: unknown } | null)?.notice;
   const message = typeof notice === "string" ? notice : null;
 
+  // Dismissing = navigating to the same URL with the state cleared (replace: no extra history entry).
   const dismiss = () => navigate(location.pathname + location.search, { replace: true, state: null });
 
+  // Hide the message by itself after six seconds.
   useEffect(() => {
     if (!message) return;
     const timer = window.setTimeout(dismiss, 6000);
-    return () => window.clearTimeout(timer);
+    return () => window.clearTimeout(timer); // cancel the timer if the message changes or the component goes away
   }, [message]);
 
   if (!message) return null;
