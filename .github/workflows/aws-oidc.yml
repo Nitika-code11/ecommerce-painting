@@ -1,0 +1,34 @@
+# Proves that GitHub Actions can authenticate to AWS WITHOUT any stored access keys, using OpenID Connect (OIDC).
+#
+# How it works: GitHub issues this job a short-lived signed identity token. AWS checks that token against the
+# IAM role's trust policy (which names this repository and branch) and, if it matches, returns temporary
+# credentials that expire with the job. Nothing secret is stored in GitHub.
+#
+# Setup (one time, in AWS) is described in docs/aws-oidc.md. Until you set the repository variable AWS_ROLE_ARN
+# the job is skipped, so this file is safe to keep in the repository.
+name: AWS OIDC check
+
+on:
+  workflow_dispatch: # run manually from the Actions tab; add deploy steps below when you are ready
+
+# "id-token: write" lets the job request the GitHub identity token. It grants no access to the repository.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  verify-aws-login:
+    # Skipped (not failed) when the role has not been configured yet.
+    if: ${{ vars.AWS_ROLE_ARN != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assume the AWS role through OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }} # an ARN is an identifier, not a secret, so a variable is fine
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: github-actions-${{ github.run_id }}
+      # Shows which AWS identity the job received. If this prints the expected role, OIDC works.
+      - name: Show the assumed identity
+        run: aws sts get-caller-identity

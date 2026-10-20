@@ -8,7 +8,7 @@ A full-stack catalogue for an online painting store: a Spring Boot REST API and 
 | --- | --- |
 | **Backend** | Java 17, Spring Boot 3.3, Spring Data JPA, Bean Validation, H2 (in-memory), Maven |
 | **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4, React Router, Vitest + Testing Library |
-| **CI** | GitHub Actions: backend `verify` and frontend test + build on every push and pull request |
+| **CI / security** | GitHub Actions: backend `verify`, frontend audit + test + build, CodeQL, dependency review; Dependabot for updates |
 
 ## Quick start
 
@@ -25,7 +25,11 @@ npm install
 npm run dev
 ```
 
+**With Docker instead** (no JDK or Node needed): `docker compose up --build`, then open http://localhost:3000. Setup steps for Windows, configuration and troubleshooting are in [docs/docker.md](docs/docker.md).
+
 The default `dev` profile loads ten public-domain paintings (images from Wikimedia Commons), so the catalogue is populated on first start. Data lives in memory and resets on every restart.
+
+Browsing is public. To add, edit or delete paintings, click **Sign in** and use the dev administrator `admin` / `admin12345` (created by the `dev` profile only; see [Security](#security)).
 
 ## Architecture
 
@@ -37,22 +41,29 @@ Browser ──► React SPA (Vite) ──/api──► Spring Boot ──► H2 
 
 - **Layering:** `PaintingController` (HTTP) → `PaintingService` (use cases, transactions) → `PaintingRepository` (Spring Data JPA).
 - **API contract:** requests and responses are DTOs (`PaintingRequest`, `PaintingResponse`), so the JSON shape is independent of the database schema. Validation lives on the request DTO.
+- **Security:** stateless JWT bearer authentication (Spring Security resource server). Reads are public; writes require the `ADMIN` role.
 - **Errors:** every failure, including framework errors such as `405` or malformed JSON, returns the same `ApiError` body (see below). Stack traces are never exposed.
 - **Frontend safety:** every API response is checked at runtime before it is rendered, and `400` field errors are shown next to the matching form fields.
 - **Dev networking:** Vite proxies `/api` to the backend; the backend also allows the configured origins via CORS for deployed setups.
 
 ## API
 
+Interactive documentation (Swagger UI) is at http://localhost:8080/swagger-ui.html and the raw OpenAPI document at `/v3/api-docs`. Both are enabled in the `dev` profile only. Use **Authorize** in Swagger UI and paste the `accessToken` from `POST /api/auth/login` to try the admin endpoints.
+
 Base path: `/api/paintings`
 
-| Method | Path | Description | Success |
-| --- | --- | --- | --- |
-| `GET` | `/api/paintings?title=&page=&size=` | Paged list; `title` is a case-insensitive substring match | `200` |
-| `GET` | `/api/paintings/{id}` | One painting | `200` |
-| `POST` | `/api/paintings` | Create | `201` |
-| `PUT` | `/api/paintings/{id}` | Replace all editable fields | `200` |
-| `DELETE` | `/api/paintings/{id}` | Delete | `204` |
-| `GET` | `/actuator/health` | Liveness | `200` |
+| Method | Path | Who | Description | Success |
+| --- | --- | --- | --- | --- |
+| `GET` | `/api/paintings?title=&page=&size=` | public | Paged list; `title` is a case-insensitive substring match | `200` |
+| `GET` | `/api/paintings/{id}` | public | One painting | `200` |
+| `POST` | `/api/paintings` | `ADMIN` | Create | `201` |
+| `PUT` | `/api/paintings/{id}` | `ADMIN` | Replace all editable fields | `200` |
+| `DELETE` | `/api/paintings/{id}` | `ADMIN` | Delete | `204` |
+| `POST` | `/api/auth/register` | public | Create a `CUSTOMER` account | `201` |
+| `POST` | `/api/auth/login` | public | Exchange credentials for a token | `200` |
+| `GET` | `/actuator/health` | public | Liveness | `200` |
+
+A missing or invalid token gets `401`; a valid token without the `ADMIN` role gets `403`. Both use the standard error body below.
 
 `page` is zero-based (default `0`); `size` defaults to `12` and is capped at `100`. Results are ordered by `id`.
 
@@ -73,12 +84,25 @@ Error response (all failures):
   "fieldErrors": { "title": "must not be blank" } }
 ```
 
-Example:
+Example (sign in, then create a painting):
 
 ```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin12345"}' | sed 's/.*"accessToken":"\([^"]*\)".*/\1/')
+
 curl -X POST http://localhost:8080/api/paintings -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"title":"Sunset Over Hills","artist":"A. Sharma","price":4500.00,"stock":3}'
 ```
+
+## Security
+
+- **Authentication:** `POST /api/auth/login` verifies the password against a BCrypt hash and returns an HS256-signed JWT (claims: `sub` = username, `roles`, `iat`, `exp`; lifetime `APP_JWT_TTL`, default 60 minutes). Clients send it as `Authorization: Bearer <token>`.
+- **Authorisation:** `GET` on paintings and the auth endpoints are public. Everything else needs a valid token, and `POST`/`PUT`/`DELETE` on paintings are restricted with `@PreAuthorize("hasRole('ADMIN')")` on the controller. Unknown routes are denied by default.
+- **Roles:** `CUSTOMER` (self-service sign-up via `/api/auth/register`) and `ADMIN` (never self-service; created from `APP_ADMIN_USERNAME` / `APP_ADMIN_PASSWORD` at startup if that account does not exist).
+- **Hygiene:** usernames are unique ignoring case; wrong password and unknown user return the same `401` message and do the same BCrypt work; passwords are never logged or returned; the app refuses to start without a signing key of at least 32 bytes.
+- **Stateless, so no CSRF:** the token is sent explicitly in a header, not in a cookie. The UI keeps it in `sessionStorage`, so it is gone when the tab closes; the trade-off is that script injection (XSS) could read it, which is why the UI renders no unescaped HTML.
+- **UI:** guests see **Sign in**; admins additionally see Add/Edit/Delete; management routes redirect guests to sign in. This is convenience only; the API enforces every rule.
 
 ## Configuration
 
@@ -97,6 +121,9 @@ The schema is owned by [Flyway](https://flywaydb.org); Hibernate only validates 
 | `backend/src/main/resources/db/migration` | every profile | Schema (`V1__create_paintings.sql`). Add new changes as new versioned files; never edit an applied one. |
 | `backend/src/main/resources/db/dev` | `dev` only | Sample paintings (`V1000__…`). Versions start at 1000 so they sort after schema migrations. |
 | `APP_CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call `/api/**`. |
+| `APP_JWT_SECRET` | none (required outside `dev`) | HMAC signing key, at least 32 bytes. Keep it in a secrets manager; rotating it signs everyone out. |
+| `APP_JWT_TTL` | `60m` | Access-token lifetime. |
+| `APP_ADMIN_USERNAME` / `APP_ADMIN_PASSWORD` | empty | Creates this `ADMIN` account at startup if it does not exist. The `dev` profile sets `admin` / `admin12345`: public, throwaway values for local use only. |
 
 Frontend: see [`frontend/README.md`](frontend/README.md) (`VITE_API_BASE_URL`, `VITE_ENABLE_MUTATIONS`).
 
@@ -105,6 +132,7 @@ Frontend: see [`frontend/README.md`](frontend/README.md) (`VITE_API_BASE_URL`, `
 ```bash
 cd backend  && ./mvnw verify    # unit (Mockito), repository (@DataJpaTest) and API integration tests (MockMvc + H2)
 cd frontend && npm test         # component, page, API-client and validation tests
+k6 run load-tests/catalogue.js  # load test with pass/fail latency targets (see docs/performance.md)
 ```
 
 ## Repository layout
@@ -112,13 +140,15 @@ cd frontend && npm test         # component, page, API-client and validation tes
 ```text
 backend/    Spring Boot API (Maven wrapper included)
 frontend/   React app
-docs/       Specs and roadmap (backend-spec.md, frontend-spec.md, roadmap.md)
-.github/    CI workflow
+docker-compose.yml, backend/Dockerfile, frontend/Dockerfile   Container setup (see docs/docker.md)
+load-tests/ k6 load test
+docs/       Specs, roadmap, performance targets, AWS OIDC guide
+.github/    Workflows (CI, CodeQL, dependency review, AWS OIDC check) and Dependabot config
 ```
 
 ## Scope and known limitations
 
-- **No authentication or authorisation yet:** create, update and delete are open. Do not expose this API publicly as is. Planned in [`docs/roadmap.md`](docs/roadmap.md) (Phase 3).
+- **Authentication is deliberately minimal:** no refresh tokens or logout-on-server (a token stays valid until it expires, and its role is trusted until then), no login rate limiting or lockout, no password reset or email verification, no user-management endpoints. All are noted in [`docs/roadmap.md`](docs/roadmap.md).
 - **H2 is in-memory and development-only.** The schema is already managed by Flyway migrations; adding a PostgreSQL profile is on the roadmap.
 - **Images are URLs only** (no upload/storage yet). The seed data hot-links Wikimedia Commons.
 - Checkout, payments and orders are out of scope for this milestone.

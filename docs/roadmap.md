@@ -15,9 +15,11 @@
 - [x] Add integration tests for API and validation
 
 ## Phase 3: Customers and security
-- [ ] Add customer registration and login
-- [ ] Add Spring Security and role-based access (CUSTOMER / ADMIN)
-- [ ] Restrict painting create/update/delete to ADMIN
+- [x] Add customer registration and login
+- [x] Add Spring Security and role-based access (CUSTOMER / ADMIN)
+- [x] Restrict painting create/update/delete to ADMIN
+- [ ] Add login rate limiting / lockout, refresh tokens and token revocation
+- [ ] Add password reset and email verification
 - [ ] Add user profile and address management
 
 ## Phase 4: Cart and orders
@@ -36,7 +38,7 @@
 - [ ] Replace H2 with PostgreSQL (local Docker first, then Amazon RDS)
 - [ ] Store secrets in environment variables / AWS Secrets Manager
 - [ ] Add structured logs, health checks, metrics, and tracing
-- [ ] Add Dockerfile and container build
+- [x] Add Dockerfile and container build (images, compose and a CI smoke test are written; see [docker.md](docker.md). First verified by the CI `docker` job, not yet built locally)
 - [ ] Deploy container to Amazon ECS Fargate behind an Application Load Balancer
 - [ ] Use Amazon ECR for images and CloudWatch for logs/alarms
 - [ ] Configure a custom domain and HTTPS
@@ -44,10 +46,10 @@
 
 ## Phase 7: CI/CD and quality
 - [x] Add GitHub Actions CI (tests + build)
-- [ ] Use GitHub Actions OIDC for AWS access; avoid long-lived AWS keys
-- [ ] Add dependency/security scanning
-- [ ] Add API documentation with OpenAPI/Swagger
-- [ ] Add load tests and performance targets
+- [x] Use GitHub Actions OIDC for AWS access; avoid long-lived AWS keys (workflow and trust-policy guide are in place: see [aws-oidc.md](aws-oidc.md); it activates once an AWS role is created and `AWS_ROLE_ARN` is set)
+- [x] Add dependency/security scanning (Dependabot, CodeQL, dependency review on pull requests, `npm audit` in CI)
+- [x] Add API documentation with OpenAPI/Swagger (dev profile: `/swagger-ui.html`)
+- [x] Add load tests and performance targets (k6, see [performance.md](performance.md))
 
 ## Suggested build order
 1. Finish catalogue tests and DTOs.

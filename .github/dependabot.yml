@@ -1,0 +1,28 @@
+# Dependabot opens pull requests when a dependency has a newer version or a known vulnerability.
+# Each PR runs the normal CI, so an upgrade only merges if the tests and build still pass.
+version: 2
+updates:
+  # Java dependencies declared in backend/pom.xml
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      # One PR for all minor/patch bumps instead of a PR per library.
+      maven-minor-and-patch:
+        update-types: [minor, patch]
+
+  # JavaScript dependencies declared in frontend/package.json
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+
+  # Versions of the actions used in .github/workflows (checkout, setup-java, ...)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
