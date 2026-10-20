@@ -1,3 +1,4 @@
+# Continuous integration: build and test both halves of the project on every push to main and every pull request.
 name: CI
 
 on:
@@ -5,9 +6,11 @@ on:
     branches: [main]
   pull_request:
 
+# The workflow only needs to read the repository.
 permissions:
   contents: read
 
+# A newer push to the same branch cancels the run that is still in progress.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -25,7 +28,8 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-          cache: maven
+          cache: maven # reuse downloaded dependencies between runs
+      # Compiles, runs all unit/repository/API tests against in-memory H2, and builds the jar.
       - name: Build and test
         run: ./mvnw -B verify
 
@@ -42,6 +46,49 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
+      - run: npm ci # exact versions from package-lock.json
+      # Fails the build if an installed package has a known high/critical vulnerability.
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
       - run: npm test
+      # Type-checks (tsc) and produces the production bundle.
       - run: npm run build
+
+  # Proves the Docker setup works end to end: both images build, the stack starts and becomes healthy, and real
+  # requests succeed through the frontend's nginx proxy (including the security rules).
+  docker:
+    name: Docker images and smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build both images
+        run: docker compose build
+      # --wait blocks until every service with a health check reports healthy (or the timeout passes).
+      - name: Start the stack
+        run: docker compose up -d --wait --wait-timeout 240
+      - name: Smoke test through the frontend (port 3000)
+        run: |
+          set -euo pipefail
+          # The single-page app is served.
+          curl -fsS http://localhost:3000/ | grep -q 'id="root"'
+          # A deep link still returns the app (nginx falls back to index.html for React Router).
+          curl -fsS http://localhost:3000/paintings/3 | grep -q 'id="root"'
+          # /api is forwarded to the backend, which has the 10 sample paintings.
+          curl -fsS http://localhost:3000/api/paintings | grep -q '"totalElements":10'
+          # Anonymous writes are refused...
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/paintings \
+            -H 'Content-Type: application/json' -d '{"title":"x","artist":"y","price":1,"stock":1}')
+          test "$code" = "401"
+          # ...but an administrator can sign in and write.
+          token=$(curl -fsS -X POST http://localhost:3000/api/auth/login -H 'Content-Type: application/json' \
+            -d '{"username":"admin","password":"admin12345"}' | sed -E 's/.*"accessToken":"([^"]+)".*/\1/')
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/paintings \
+            -H 'Content-Type: application/json' -H "Authorization: Bearer $token" \
+            -d '{"title":"CI painting","artist":"CI","price":1,"stock":1}')
+          test "$code" = "201"
+      - name: Show container logs if something failed
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop and remove the stack
+        if: always()
+        run: docker compose down -v

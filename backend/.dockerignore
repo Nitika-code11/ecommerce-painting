@@ -1,0 +1,10 @@
+# Files that must not be sent to Docker as build context (smaller, faster, and no stale or private files in the image).
+target/
+.idea/
+.vscode/
+*.iml
+*.log
+.env
+.env.*
+Dockerfile
+.dockerignore

@@ -1,0 +1,42 @@
+# nginx site configuration for the frontend container. The ${BACKEND_URL} placeholder is replaced with the
+# environment variable of that name when the container starts (other $names below are nginx's own and are left alone).
+server {
+    listen 8080;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Compress text responses (JS, CSS, JSON, SVG) to cut download size.
+    gzip on;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    # API: everything under /api/ is forwarded to the backend, so the browser only ever talks to this one origin
+    # (no CORS needed). The path is passed through unchanged because proxy_pass has no URI part.
+    location /api/ {
+        proxy_pass ${BACKEND_URL};
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+        include /etc/nginx/security-headers.conf;
+    }
+
+    # Built assets have a content hash in their file name (index-AbC123.js), so they can be cached "forever":
+    # a new build produces new file names.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        include /etc/nginx/security-headers.conf;
+    }
+
+    # Single-page app: any other URL (/paintings/3, /login, ...) returns index.html and React Router decides what
+    # to show. The page itself must never be cached, or users would keep an old version that points at old assets.
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache";
+        include /etc/nginx/security-headers.conf;
+    }
+}

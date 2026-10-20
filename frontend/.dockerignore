@@ -1,0 +1,13 @@
+# Files that must not be sent to Docker as build context. Most important: node_modules and dist. The image runs
+# `npm ci` itself, and copying the host's node_modules (built for Windows) over it would break the build.
+node_modules/
+dist/
+coverage/
+.idea/
+.vscode/
+*.log
+.env
+.env.*
+!.env.example
+Dockerfile
+.dockerignore

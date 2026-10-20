@@ -1,0 +1,35 @@
+# Runs the whole application locally with one command:   docker compose up --build
+#   UI:           http://localhost:3000      (nginx serving the React app, forwarding /api to the backend)
+#   API + Swagger http://localhost:8080      (Swagger UI at /swagger-ui.html, dev profile only)
+#
+# By default this runs the "dev" profile: sample paintings, API docs, and a throwaway administrator
+# (admin / admin12345). Those are public values meant for a developer's machine ONLY.
+# To try a production-like run (no samples, no docs, your own secrets), copy .env.example to .env and edit it.
+services:
+  backend:
+    build: ./backend
+    environment:
+      # ${NAME:-default}: take NAME from your shell or the .env file, else use the default after ":-".
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-}           # required (32+ bytes) outside the dev profile
+      APP_ADMIN_USERNAME: ${APP_ADMIN_USERNAME:-}   # first administrator created at startup
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-}
+      # Only matters if a browser on another origin calls the API directly; through the frontend it is same-origin.
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    ports:
+      - "8080:8080"   # host:container. Remove this line to keep the API reachable only through the frontend.
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_ENABLE_MUTATIONS: ${VITE_ENABLE_MUTATIONS:-true}
+    environment:
+      BACKEND_URL: http://backend:8080   # "backend" is the service name above; Docker's network resolves it
+    ports:
+      - "3000:8080"
+    depends_on:
+      backend:
+        condition: service_healthy   # start nginx only once the API's health check passes
+    restart: unless-stopped
